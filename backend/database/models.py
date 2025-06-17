@@ -1,26 +1,50 @@
 # backend/database/models.py
 
 from datetime import datetime
+from typing import Optional, Dict, Any
 
-class LogEntry:
-    """
-    Represents a single parsed log event.
-    This structure maps directly to documents in the 'logs' collection in MongoDB.
-    """
-    def __init__(self, timestamp: datetime, host: str, source: str, level: str, message: str, raw_log: str, ip_address: str = None, _id: str = None):
-        self._id = _id # MongoDB's unique identifier (will be set after insertion)
+# Base class for all models
+class BaseModel:
+    def __init__(self, **kwargs):
+        # Assign all keyword arguments as attributes
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Converts the model's attributes to a dictionary, suitable for MongoDB insertion."""
+        data = self.__dict__.copy()
+        # Convert datetime objects to ISO format strings for consistency if needed,
+        # or rely on PyMongo's default handling for datetime objects.
+        # For MongoDB, direct datetime objects are usually preferred.
+        return data
+
+class LogEntry(BaseModel):
+    def __init__(self,
+                 timestamp: datetime,
+                 host: str,
+                 source: str,
+                 level: str,
+                 message: str,
+                 # Add the new IP fields here with Optional type hinting
+                 source_ip_host: Optional[str] = None,
+                 destination_ip_host: Optional[str] = None,
+                 raw_log: Optional[str] = None,
+                 **kwargs):
+        super().__init__(**kwargs) # Pass any extra kwargs to BaseModel
+
         self.timestamp = timestamp
         self.host = host
-        self.source = source      # e.g., 'Firewall', 'SSHD', 'Apache', 'Application'
-        self.level = level        # e.g., 'INFO', 'WARN', 'ERROR', 'ALERT', 'CRITICAL', 'AUTH'
+        self.source = source
+        self.level = level
         self.message = message
-        self.raw_log = raw_log    # The original, unparsed log string
-        self.ip_address = ip_address # Extracted IP address, if any
+        self.source_ip_host = source_ip_host
+        self.destination_ip_host = destination_ip_host
+        self.raw_log = raw_log # Store the original raw log if available
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """
-        Converts the LogEntry object to a dictionary suitable for MongoDB insertion.
-        MongoDB handles datetime objects directly.
+        Converts the LogEntry object to a dictionary for database storage.
+        Handles datetime objects for MongoDB compatibility.
         """
         data = {
             "timestamp": self.timestamp,
@@ -28,74 +52,55 @@ class LogEntry:
             "source": self.source,
             "level": self.level,
             "message": self.message,
-            "raw_log": self.raw_log,
-            "ip_address": self.ip_address
+            "source_ip_host": self.source_ip_host, # Include new fields
+            "destination_ip_host": self.destination_ip_host, # Include new fields
+            "raw_log": self.raw_log
         }
-        if self._id:
-            data["_id"] = self._id
-        return data
+        # Filter out None values if you don't want them stored explicitly
+        return {k: v for k, v in data.items() if v is not None}
 
-    @staticmethod
-    def from_dict(data: dict):
-        """
-        Creates a LogEntry object from a dictionary retrieved from MongoDB.
-        Assumes '_id' is present if retrieved from DB.
-        """
-        return LogEntry(
-            _id=str(data.get("_id")), # Convert ObjectId to string
-            timestamp=data["timestamp"],
-            host=data["host"],
-            source=data["source"],
-            level=data["level"],
-            message=data["message"],
-            raw_log=data["raw_log"],
-            ip_address=data.get("ip_address")
-        )
 
-class Alert:
-    """
-    Represents a security alert triggered by SIEM rules.
-    This structure maps directly to documents in the 'alerts' collection in MongoDB.
-    """
-    def __init__(self, alert_type: str, severity: str, timestamp: datetime, description: str, source_ip_host: str, status: str = "Open", related_logs: list = None, _id: str = None):
-        self._id = _id # MongoDB's unique identifier
-        self.alert_type = alert_type      # e.g., 'Multiple Failed Logins', 'Unusual Traffic'
-        self.severity = severity          # e.g., 'Low', 'Medium', 'High', 'Critical'
+class Alert(BaseModel):
+    def __init__(self,
+                 timestamp: datetime,
+                 severity: str,
+                 description: str,
+                 source_ip_host: Optional[str] = None, # Make sure this is here too for Alert model
+                 status: str = "Open",
+                 assigned_to: Optional[str] = None,
+                 comments: Optional[list] = None,
+                 rule_name: Optional[str] = None,
+                 log_ids: Optional[list] = None, # List of _id from related logs
+                 **kwargs):
+        super().__init__(**kwargs)
+
         self.timestamp = timestamp
+        self.severity = severity
         self.description = description
-        self.source_ip_host = source_ip_host # IP address or hostname related to the alert
-        self.status = status              # e.g., 'Open', 'Closed', 'Investigating'
-        self.related_logs = related_logs if related_logs is not None else [] # List of MongoDB _id's of related log entries
+        self.source_ip_host = source_ip_host # Ensure it's handled here
+        self.status = status
+        self.assigned_to = assigned_to
+        self.comments = comments if comments is not None else []
+        self.rule_name = rule_name
+        self.log_ids = log_ids if log_ids is not None else []
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """
-        Converts the Alert object to a dictionary suitable for MongoDB insertion.
+        Converts the Alert object to a dictionary for database storage.
         """
         data = {
-            "alert_type": self.alert_type,
-            "severity": self.severity,
             "timestamp": self.timestamp,
+            "severity": self.severity,
             "description": self.description,
-            "source_ip_host": self.source_ip_host,
+            "source_ip_host": self.source_ip_host, # Include new fields
             "status": self.status,
-            "related_logs": self.related_logs
+            "assigned_to": self.assigned_to,
+            "comments": self.comments,
+            "rule_name": self.rule_name,
+            "log_ids": self.log_ids
         }
-        if self._id:
-            data["_id"] = self._id
-        return data
+        # Filter out None values, except for 'comments' and 'log_ids' if you want empty lists stored
+        return {k: v for k, v in data.items() if v is not None or k in ['comments', 'log_ids']}
 
-    @staticmethod
-    def from_dict(data: dict):
-        """
-        Creates an Alert object from a dictionary retrieved from MongoDB.
-        """
-        return Alert(
-            _id=str(data.get("_id")), # Convert ObjectId to string
-            alert_type=data["alert_type"],
-            severity=data["severity"],
-            timestamp=data["timestamp"],
-            description=data["description"],
-            source_ip_host=data["source_ip_host"],
-            status=data.get("status", "Open"),
-            related_logs=data.get("related_logs", [])
-        )
+# You may also need to update the LogEntry and Alert creation in initialize_mock_data_api_side
+# if you want to explicitly set source_ip_host for the directly created alerts.
