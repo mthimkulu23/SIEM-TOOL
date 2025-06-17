@@ -12,6 +12,7 @@ from backend.core.log_parser import LogParser
 from backend.core.detection_rules import DetectionRules
 from backend.database.models import LogEntry, Alert
 from collections import defaultdict
+from datetime import datetime, timedelta # Added timedelta for mock data initialization
 
 # --- Initialize Core Components ---
 config = Config()
@@ -75,21 +76,19 @@ def get_recent_logs():
 
 @app.route('/api/logs/filter', methods=['POST'])
 def filter_logs():
-    request_data = request.get_json()
-    filter_text = request_data.get('filter_text', '').lower()
-    source_filter = request_data.get('source', 'All')
-    level_filter = request_data.get('level', 'All')
+    try:
+        request_data = request.get_json()
+        filter_text = request_data.get('filter_text', '')
+        source_filter = request_data.get('source', 'All Sources') # Changed default to 'All Sources' for consistency
+        level_filter = request_data.get('level', 'All Levels')   # Changed default to 'All Levels' for consistency
 
-    all_logs = db_client.get_all_logs()
-    filtered_logs = [
-        log for log in all_logs
-        if (filter_text in log.message.lower() or
-            (log.ip_address and filter_text in log.ip_address.lower()) or # Added ip_address to filter
-            filter_text in log.source.lower()) and \
-           (source_filter == 'All' or log.source == source_filter) and \
-           (level_filter == 'All' or log.level == level_filter)
-    ]
-    return jsonify([log.to_dict() for log in filtered_logs])
+        # CORRECTED LINE: Use db_client.filter_logs directly
+        filtered_logs_data = db_client.filter_logs(filter_text=filter_text, source=source_filter, level=level_filter)
+        return jsonify([log.to_dict() for log in filtered_logs_data])
+
+    except Exception as e:
+        app.logger.error(f"Error filtering logs: {e}")
+        return jsonify({"error": "Error filtering logs. Please try again."}), 500
 
 @app.route('/api/alerts/open', methods=['GET'])
 def get_open_alerts():
@@ -162,7 +161,11 @@ def get_compliance_audit_report():
     report_data = report_gen.generate_compliance_audit_report(standard)
     return jsonify(report_data)
 
-def initialize_mock_data():
+def initialize_mock_data_api_side():
+    """
+    Initializes mock data by processing sample raw logs.
+    This is called when running api.py directly (e.g., for local development/testing).
+    """
     print("Initializing mock data for API endpoints...")
     from backend.core.log_receiver import process_raw_log
 
@@ -184,9 +187,37 @@ def initialize_mock_data():
         "Jun 17 10:01:20 db-dev-02 netflow: [ALERT] Suspicious high volume outbound connections to 172.16.20.100."
     ]
     for raw_log in sample_logs_for_init:
-        process_raw_log(raw_log, db_client, log_parser, rules_engine)
+        # Simulate processing a log, which will involve parsing and inserting into the DB
+        # The `process_raw_log` function should handle DB insertion.
+        processed_log = log_parser.parse_log(raw_log)
+        if processed_log:
+            db_client.insert_log(processed_log.to_dict())
+            rules_engine.run_rules_on_log(processed_log) # Also run detection rules
+
+    # Also add some mock alerts directly if the alert collection is empty
+    if not db_client.get_open_alerts(): # Check if alerts are empty to prevent re-adding
+        db_client.insert_alert(Alert(
+            timestamp=datetime.now() - timedelta(minutes=10),
+            severity="High",
+            description="API Mock Alert: Multiple failed logins detected.",
+            source_ip_host="192.168.1.50",
+            status="Open"
+        ).to_dict())
+        db_client.insert_alert(Alert(
+            timestamp=datetime.now() - timedelta(minutes=20),
+            severity="Medium",
+            description="API Mock Alert: Unusual data transfer volume.",
+            source_ip_host="server-b",
+            status="Open"
+        ).to_dict())
     print("Mock data initialization complete.")
 
+
 if __name__ == '__main__':
-    initialize_mock_data()
+    # When running locally (i.e., this script is executed directly),
+    # ensure mock data is initialized.
+    # On Render, the `gunicorn` command starts the app, and the database
+    # connection will either succeed or fall back to in-memory mock data
+    # as defined in db_client.py's __init__.
+    initialize_mock_data_api_side()
     app.run(host=config.API_HOST, port=config.API_PORT, debug=True)
