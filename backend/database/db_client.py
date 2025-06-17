@@ -3,7 +3,7 @@
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
 from bson.objectid import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta # Added timedelta here
 
 from backend.config import Config
 from backend.database.models import LogEntry, Alert
@@ -52,21 +52,34 @@ class SiemDatabase:
     def _initialize_mock_database(self):
         print("Conceptual: In-memory database initialized (no actual MongoDB connection).")
         # You might want to populate some dummy data here for testing the mock DB
-        # if not self._mock_logs_storage: # Add some mock data if not already populated
-        #     self._mock_logs_storage.append(LogEntry(
-        #         timestamp=datetime.now(),
-        #         source="System",
-        #         level="INFO",
-        #         message="Mock log entry 1 for testing."
-        #     ).to_dict())
-        # if not self._mock_alerts_storage:
-        #     self._mock_alerts_storage.append(Alert(
-        #         timestamp=datetime.now(),
-        #         severity="High",
-        #         description="Mock Alert: Unusual login activity.",
-        #         source_ip_host="192.168.1.100",
-        #         status="Open"
-        #     ).to_dict())
+        if not self._mock_logs_storage: # Add some mock data if not already populated
+            self._mock_logs_storage.append(LogEntry(
+                timestamp=datetime.now(),
+                source="System",
+                level="INFO",
+                message="Mock log entry 1 for testing."
+            ).to_dict())
+            self._mock_logs_storage.append(LogEntry(
+                timestamp=datetime.now() - timedelta(minutes=5),
+                source="Firewall",
+                level="WARN",
+                message="Mock log entry 2: Potential port scan detected."
+            ).to_dict())
+        if not self._mock_alerts_storage:
+            self._mock_alerts_storage.append(Alert(
+                timestamp=datetime.now(),
+                severity="High",
+                description="Mock Alert: Unusual login activity.",
+                source_ip_host="192.168.1.100",
+                status="Open"
+            ).to_dict())
+            self._mock_alerts_storage.append(Alert(
+                timestamp=datetime.now() - timedelta(hours=1),
+                severity="Low",
+                description="Mock Alert: Low disk space warning.",
+                source_ip_host="server-a",
+                status="Closed"
+            ).to_dict())
 
     def insert_log(self, log_data: dict) -> str:
         """Inserts a new log entry into the database."""
