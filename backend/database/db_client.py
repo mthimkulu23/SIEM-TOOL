@@ -25,11 +25,11 @@ class SiemDatabase:
             self.alerts_collection = self.db[self.config.ALERTS_COLLECTION_NAME]
             print("Successfully connected to MongoDB Atlas.")
 
-            # TEMPORARILY COMMENT OUT THESE LINES
-            # self.logs_collection.create_index("timestamp", -1)
-            # self.alerts_collection.create_index("timestamp", -1)
-            # self.alerts_collection.create_index("status")
-            # self.alerts_collection.create_index("severity")
+            # RE-ENABLED THESE LINES: Create indexes for performance
+            self.logs_collection.create_index("timestamp", -1)
+            self.alerts_collection.create_index("timestamp", -1)
+            self.alerts_collection.create_index("status")
+            self.alerts_collection.create_index("severity")
 
             # Ensure mock data is cleared/not used if real connection succeeds
             self._mock_logs_storage = []
@@ -54,7 +54,10 @@ class SiemDatabase:
         self._mock_logs_storage = []
         self._mock_alerts_storage = []
 
-    # ... (rest of the methods remain the same, ensure the real MongoDB logic is uncommented and uses the 'if self.collection:' check)
+    # Remember to also ensure the actual MongoDB interaction logic in your other methods
+    # (like insert_log, insert_alert, get_recent_logs, etc.) is uncommented and uses
+    # the 'if self.collection:' check. I've included `insert_log` as an example below.
+
     def insert_log(self, log_entry: LogEntry) -> str | None:
         log_dict = log_entry.to_dict()
         if self.logs_collection: # Check if real connection was made
@@ -68,5 +71,6 @@ class SiemDatabase:
             log_entry._id = mock_id
             return mock_id
 
-    # Make sure insert_alert, get_recent_logs, get_all_logs, get_open_alerts, update_alert_status
-    # also have their real MongoDB code uncommented and wrapped in 'if self.collection:' checks.
+    # The rest of your methods (insert_alert, get_recent_logs, get_all_logs, get_open_alerts, update_alert_status)
+    # should have their MongoDB specific code uncommented and be guarded by 'if self.collection_name:' checks
+    # similar to the `insert_log` example above.
