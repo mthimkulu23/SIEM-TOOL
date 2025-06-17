@@ -45,6 +45,7 @@ class SiemDatabase:
             print(f"ERROR: An unexpected error occurred during MongoDB connection: {type(e).__name__}: {e}")
             self._initialize_mock_database()
 
+        # This check is correct as it determines if the client was successfully initialized
         if self.client is None:
             self._initialize_mock_database()
 
@@ -69,7 +70,8 @@ class SiemDatabase:
 
     def insert_log(self, log_data: dict) -> str:
         """Inserts a new log entry into the database."""
-        if self.logs_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.logs_collection is not None:
             log_entry = LogEntry(**log_data)
             result = self.logs_collection.insert_one(log_entry.to_dict())
             return str(result.inserted_id)
@@ -82,7 +84,8 @@ class SiemDatabase:
 
     def get_recent_logs(self, limit: int = 100) -> list[LogEntry]:
         """Fetches the most recent log entries."""
-        if self.logs_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.logs_collection is not None:
             logs_data = list(self.logs_collection.find().sort("timestamp", -1).limit(limit))
             return [LogEntry.from_dict(log) for log in logs_data]
         else:
@@ -102,7 +105,8 @@ class SiemDatabase:
         if level and level != "All Levels":
             query["level"] = level
 
-        if self.logs_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.logs_collection is not None:
             logs_data = list(self.logs_collection.find(query).sort("timestamp", -1).limit(1000)) # Adjust limit as needed
             return [LogEntry.from_dict(log) for log in logs_data]
         else:
@@ -119,7 +123,8 @@ class SiemDatabase:
 
     def insert_alert(self, alert_data: dict) -> str:
         """Inserts a new alert entry into the database."""
-        if self.alerts_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.alerts_collection is not None:
             alert_entry = Alert(**alert_data)
             result = self.alerts_collection.insert_one(alert_entry.to_dict())
             return str(result.inserted_id)
@@ -135,7 +140,8 @@ class SiemDatabase:
         if severity:
             query["severity"] = severity
 
-        if self.alerts_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.alerts_collection is not None:
             alerts_data = list(self.alerts_collection.find(query).sort("timestamp", -1))
             return [Alert.from_dict(alert) for alert in alerts_data]
         else:
@@ -147,7 +153,8 @@ class SiemDatabase:
 
     def update_alert_status(self, alert_id: str, new_status: str) -> bool:
         """Updates the status of a specific alert."""
-        if self.alerts_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.alerts_collection is not None:
             try:
                 result = self.alerts_collection.update_one(
                     {"_id": ObjectId(alert_id)},
@@ -167,7 +174,8 @@ class SiemDatabase:
 
     def get_alert_by_id(self, alert_id: str) -> Alert | None:
         """Fetches a single alert by its ID."""
-        if self.alerts_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.alerts_collection is not None:
             alert_data = self.alerts_collection.find_one({"_id": ObjectId(alert_id)})
             return Alert.from_dict(alert_data) if alert_data else None
         else:
@@ -177,13 +185,15 @@ class SiemDatabase:
             return None
 
     def get_critical_alerts_count(self) -> int:
-        if self.alerts_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.alerts_collection is not None:
             return self.alerts_collection.count_documents({"severity": "Critical", "status": {"$ne": "Closed"}})
         else:
             return sum(1 for alert in self._mock_alerts_storage if alert.get('severity') == 'Critical' and alert.get('status') != 'Closed')
 
     def get_unassigned_alerts_count(self) -> int:
-        if self.alerts_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.alerts_collection is not None:
             return self.alerts_collection.count_documents({"status": "Open"})
         else:
             return sum(1 for alert in self._mock_alerts_storage if alert.get('status') == 'Open')
@@ -192,14 +202,16 @@ class SiemDatabase:
     # You might calculate EPS and top sources within api.py or add more specific
     # methods here for database queries.
     def get_total_logs_count(self) -> int:
-        if self.logs_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.logs_collection is not None:
             return self.logs_collection.count_documents({})
         else:
             return len(self._mock_logs_storage)
 
     def get_alert_trend_data(self, days: int = 7) -> list[int]:
         """Generates alert trend data for the last 'days'."""
-        if self.alerts_collection:
+        # CHANGED: Use 'is not None' for collection checks
+        if self.alerts_collection is not None:
             # This would be a more complex aggregation query in a real scenario
             # For simplicity, returning mock data or basic count for now.
             # You'd group by day and count alerts for each day.
