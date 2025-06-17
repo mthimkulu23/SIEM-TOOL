@@ -2,122 +2,98 @@
 
 import re
 from datetime import datetime
-from backend.database.models import LogEntry
+from backend.database.models import LogEntry # Assuming LogEntry is defined here
 
 class LogParser:
-    """
-    Handles parsing and initial structuring of raw log data into LogEntry objects.
-    This parser is designed for a simplified, common log format.
-    """
     def __init__(self):
-        # Regular expression to parse log lines.
-        # It captures: Month, Day, Time, Host, Process Info, Log Level, and Message.
+        # Regex to capture common log fields: Month Day HH:MM:SS host process: [LEVEL] message
+        # This regex is a starting point and might need to be refined based on actual log formats.
         self.log_pattern = re.compile(
-            r"(\w+ \d+ \d{2}:\d{2}:\d{2}) " # Group 1: Timestamp (e.g., Jun 17 10:00:01)
-            r"(\S+) "                       # Group 2: Hostname (e.g., host-a)
-            r"(.*?): "                      # Group 3: Process Info (e.g., kernel, sshd[123]) - non-greedy match
-            r"\[(INFO|WARN|ERROR|ALERT|CRITICAL|AUTH|DEBUG|TRACE)\] " # Group 4: Log Level
-            r"(.*)"                         # Group 5: The rest of the message
+            r"^(?P<month>\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+" # Timestamp (Month Day HH:MM:SS)
+            r"(?P<host>\S+)\s+"                                  # Hostname/IP
+            r"(?P<process>[a-zA-Z0-9_\-\.]+)(?:\[(?P<pid>\d+)\])?:\s*" # Process name (and optional PID)
+            r"(?:\[(?P<level>[A-Z]+)\]\s*)?"                     # Log Level (optional, e.g., [INFO], [ERROR])
+            r"(?P<message>.*)$"                                  # Remaining message
         )
-        # Regex to find common IPv4 patterns within the message
-        self.ip_pattern = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
+        print("LogParser initialized.") # Added for debugging deployment
 
-        # Simplified mapping for common log sources/processes
-        self.source_mapping = {
-            "sshd": "Authentication",
-            "apache": "Web Server",
-            "nginx": "Web Server",
-            "kernel": "System",
-            "firewall": "Firewall",
-            "postgres": "Database",
-            "mysql": "Database",
-            "app": "Application",
-            "systemd": "System",
-            "cron": "System",
-            "network": "Network",
-            "av": "Endpoint Security",
-            "endpoint": "Endpoint Security",
-            "vuln-scan": "Vulnerability Scanner",
-            "backup-srv": "Backup System",
-            "cert-monitor": "System",
-            "auth-server": "Authentication", # More specific mapping
-            "netflow": "Network" # For network flow data
-        }
-
-    def parse_log_line(self, log_line: str) -> LogEntry | None:
+    def parse_log(self, raw_log_string: str) -> LogEntry | None:
         """
-        Parses a single raw log line string into a structured LogEntry object.
-        Returns a LogEntry object on success, None on failure.
+        Parses a raw log string into a structured LogEntry object.
+        Extracts timestamp, host, process, level, and message.
+        Attempts to extract source_ip_host and destination_ip_host from the message.
         """
-        match = self.log_pattern.match(log_line)
+        match = self.log_pattern.match(raw_log_string)
         if not match:
-            # print(f"DEBUG: No regex match for log: {log_line}")
+            # print(f"Failed to parse log: {raw_log_string}") # Uncomment for local debugging if needed
             return None
 
-        timestamp_str, host, process_info, level, message = match.groups()
+        data = match.groupdict()
 
-        # --- Parse Timestamp ---
-        # We assume the current year as logs usually don't contain it.
-        # In a real-world scenario, you might infer the year from context
-        # or require it to be present in the log.
+        # Parse timestamp (adjust format string as needed)
         try:
+            # Example: Jun 17 10:00:01
+            # Python's strptime can't parse %b %d %H:%M:%S directly if year is missing
+            # For simplicity in mock data, we'll assume current year if not present
+            # or try to parse with a fixed year if logs are always from current year.
+            # A more robust solution might infer the year or require it in logs.
+
+            # Let's try to parse with current year (assuming logs are recent)
             current_year = datetime.now().year
-            # Example: "Jun 17 10:00:01 2024"
-            timestamp = datetime.strptime(f"{timestamp_str} {current_year}", "%b %d %H:%M:%S %Y")
+            timestamp_str_with_year = f"{data['month']} {current_year}"
+            timestamp = datetime.strptime(timestamp_str_with_year, "%b %d %H:%M:%S %Y")
         except ValueError:
-            # Fallback if timestamp format doesn't match or is invalid
-            timestamp = datetime.now()
-            print(f"WARNING: Could not parse exact timestamp for log: '{log_line}'. Using current time.")
+            # Fallback if parsing fails, or handle a different timestamp format
+            # print(f"Warning: Could not parse timestamp from log: {raw_log_string}")
+            timestamp = datetime.now() # Use current time as fallback
 
-        # --- Extract IP Address ---
-        ip_address = None
-        ip_match = self.ip_pattern.search(message)
-        if ip_match:
-            ip_address = ip_match.group(0)
+        source = data.get('process') or data.get('host') or "Unknown"
+        level = data.get('level', 'INFO').upper()
+        message = data.get('message', '').strip()
+        host = data.get('host', 'unknown-host')
 
-        # --- Determine Source Name ---
-        # Clean the process_info to get a more standardized source name.
-        process_name_clean = process_info.split('[')[0].strip().lower()
-        source = self.source_mapping.get(process_name_clean, "Unknown")
-        if source == "Unknown" and process_name_clean:
-            # If still unknown after mapping, capitalize the raw process name as a fallback.
-            source = process_name_clean.capitalize()
+        # Attempt to extract source_ip_host and destination_ip_host from the message
+        source_ip_host = None
+        destination_ip_host = None
 
-        return LogEntry(
+        # Regex for common IP patterns in messages (e.g., "from 192.168.1.10", "to 10.0.0.5")
+        # This is a very basic example; real-world parsing might need more sophisticated NLP or specific patterns per log type.
+        ip_pattern = re.compile(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b')
+        ips_found = ip_pattern.findall(message)
+
+        if "from " in message and ips_found:
+            source_ip_match = re.search(r'from (\S+)', message)
+            if source_ip_match:
+                # Use the matched group directly if it looks like an IP or hostname
+                potential_source = source_ip_match.group(1).strip('.,')
+                if re.match(ip_pattern, potential_source) or '.' in potential_source: # Simple check for IP or hostname
+                    source_ip_host = potential_source
+                else: # Fallback for just an IP found in message
+                    source_ip_host = ips_found[0] if ips_found else None
+
+        if "to " in message and ips_found:
+            destination_ip_match = re.search(r'to (\S+)', message)
+            if destination_ip_match:
+                # Use the matched group directly if it looks like an IP or hostname
+                potential_destination = destination_ip_match.group(1).strip('.,')
+                if re.match(ip_pattern, potential_destination) or '.' in potential_destination:
+                    destination_ip_host = potential_destination
+                else: # Fallback for just an IP found in message
+                    destination_ip_host = ips_found[-1] if ips_found else None # Last IP might be destination
+
+        # Default source_ip_host to the host field if not found in message
+        if not source_ip_host:
+            source_ip_host = host if re.match(ip_pattern, host) or '.' in host else None
+
+
+        log_entry = LogEntry(
             timestamp=timestamp,
             host=host,
             source=source,
             level=level,
             message=message,
-            raw_log=log_line,
-            ip_address=ip_address
+            source_ip_host=source_ip_host,
+            destination_ip_host=destination_ip_host,
+            raw_log=raw_log_string
         )
-
-# Example Usage (for testing purposes)
-if __name__ == "__main__":
-    parser = LogParser()
-    sample_logs = [
-        "Jun 17 10:00:01 host-a kernel: [INFO] User 'john.doe' logged in.",
-        "Jun 17 10:00:05 host-b sshd[123]: [AUTH] Failed password for user admin from 203.0.113.5.",
-        "Jul 01 08:30:15 web-server-01 apache: [WARN] High CPU usage.",
-        "Aug 22 14:10:00 db-server-01 postgres: [CRITICAL] Unauthorized access attempt from 10.0.0.5.",
-        "Sep 05 23:59:59 endpoint-01 av: [ALERT] Malware detected: virus.exe.",
-        "Oct 10 07:07:07 router-alpha network: [INFO] Interface Up.",
-        "Nov 15 11:11:11 unknown_host custom_app[55]: [DEBUG] Debug message here."
-    ]
-
-    print("--- Parsing Sample Logs ---")
-    for i, log_line in enumerate(sample_logs):
-        print(f"\nProcessing Log {i+1}: '{log_line}'")
-        parsed_log = parser.parse_log_line(log_line)
-        if parsed_log:
-            print(f"  Parsed LogEntry:")
-            print(f"    ID: {parsed_log._id}") # Will be None here, set by DB client
-            print(f"    Timestamp: {parsed_log.timestamp}")
-            print(f"    Host: {parsed_log.host}")
-            print(f"    Source: {parsed_log.source}")
-            print(f"    Level: {parsed_log.level}")
-            print(f"    Message: {parsed_log.message}")
-            print(f"    IP Address: {parsed_log.ip_address}")
-        else:
-            print("  Parsing FAILED.")
+        return log_entry
