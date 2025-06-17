@@ -12,7 +12,7 @@ from backend.core.log_parser import LogParser
 from backend.core.detection_rules import DetectionRules
 from backend.database.models import LogEntry, Alert
 from collections import defaultdict
-from datetime import datetime, timedelta # Added timedelta for mock data initialization
+from datetime import datetime, timedelta
 
 # --- Initialize Core Components ---
 config = Config()
@@ -31,9 +31,6 @@ frontend_public_dir = os.path.join(current_dir, '..', 'frontend', 'public')
 frontend_src_dir = os.path.join(current_dir, '..', 'frontend', 'src')
 
 # Create the Flask application instance
-# We'll serve index.html directly and then add a rule for /src
-# Initially, set static_folder to public for the root endpoint,
-# but we'll manually add a static rule for /src
 app = Flask(__name__)
 
 # Apply ProxyFix to trust X-Forwarded-* headers when running behind a reverse proxy (like Nginx, Load Balancer)
@@ -79,10 +76,9 @@ def filter_logs():
     try:
         request_data = request.get_json()
         filter_text = request_data.get('filter_text', '')
-        source_filter = request_data.get('source', 'All Sources') # Changed default to 'All Sources' for consistency
-        level_filter = request_data.get('level', 'All Levels')   # Changed default to 'All Levels' for consistency
+        source_filter = request_data.get('source', 'All Sources')
+        level_filter = request_data.get('level', 'All Levels')
 
-        # CORRECTED LINE: Use db_client.filter_logs directly
         filtered_logs_data = db_client.filter_logs(filter_text=filter_text, source=source_filter, level=level_filter)
         return jsonify([log.to_dict() for log in filtered_logs_data])
 
@@ -163,10 +159,17 @@ def get_compliance_audit_report():
 
 def initialize_mock_data_api_side():
     """
-    Initializes mock data by processing sample raw logs.
-    This is called when running api.py directly (e.g., for local development/testing).
+    Initializes mock data by processing sample raw logs and alerts.
+    This function is now called when the Flask app starts.
     """
-    print("Initializing mock data for API endpoints...")
+    print("Checking for existing data before initializing mock data...")
+    # Check if there are any logs or alerts already in the database
+    # This prevents re-inserting data on every worker boot if the DB is persistent
+    if db_client.get_recent_logs(limit=1) or db_client.get_open_alerts(limit=1):
+        print("Existing data found. Skipping mock data initialization.")
+        return
+
+    print("No existing data found. Initializing mock data for API endpoints...")
     from backend.core.log_receiver import process_raw_log
 
     sample_logs_for_init = [
@@ -187,37 +190,34 @@ def initialize_mock_data_api_side():
         "Jun 17 10:01:20 db-dev-02 netflow: [ALERT] Suspicious high volume outbound connections to 172.16.20.100."
     ]
     for raw_log in sample_logs_for_init:
-        # Simulate processing a log, which will involve parsing and inserting into the DB
-        # The `process_raw_log` function should handle DB insertion.
         processed_log = log_parser.parse_log(raw_log)
         if processed_log:
             db_client.insert_log(processed_log.to_dict())
             rules_engine.run_rules_on_log(processed_log) # Also run detection rules
 
-    # Also add some mock alerts directly if the alert collection is empty
-    if not db_client.get_open_alerts(): # Check if alerts are empty to prevent re-adding
-        db_client.insert_alert(Alert(
-            timestamp=datetime.now() - timedelta(minutes=10),
-            severity="High",
-            description="API Mock Alert: Multiple failed logins detected.",
-            source_ip_host="192.168.1.50",
-            status="Open"
-        ).to_dict())
-        db_client.insert_alert(Alert(
-            timestamp=datetime.now() - timedelta(minutes=20),
-            severity="Medium",
-            description="API Mock Alert: Unusual data transfer volume.",
-            source_ip_host="server-b",
-            status="Open"
-        ).to_dict())
+    # Add some mock alerts directly
+    db_client.insert_alert(Alert(
+        timestamp=datetime.now() - timedelta(minutes=10),
+        severity="High",
+        description="API Mock Alert: Multiple failed logins detected.",
+        source_ip_host="192.168.1.50",
+        status="Open"
+    ).to_dict())
+    db_client.insert_alert(Alert(
+        timestamp=datetime.now() - timedelta(minutes=20),
+        severity="Medium",
+        description="API Mock Alert: Unusual data transfer volume.",
+        source_ip_host="server-b",
+        status="Open"
+    ).to_dict())
     print("Mock data initialization complete.")
 
 
+# This line calls the mock data initializer right after the app is created
+# but only if no data exists.
+initialize_mock_data_api_side()
+
 if __name__ == '__main__':
-    # When running locally (i.e., this script is executed directly),
-    # ensure mock data is initialized.
-    # On Render, the `gunicorn` command starts the app, and the database
-    # connection will either succeed or fall back to in-memory mock data
-    # as defined in db_client.py's __init__.
-    initialize_mock_data_api_side()
+    # This block will still run if you execute `python backend/api.py` directly,
+    # but the mock data initialization is now handled above for Gunicorn.
     app.run(host=config.API_HOST, port=config.API_PORT, debug=True)
