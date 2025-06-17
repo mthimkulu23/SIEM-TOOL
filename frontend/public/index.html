@@ -4,16 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Marvelous SIEM Dashboard</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts - Inter for readability and a modern feel -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Custom CSS -->
+    <link href="https://fonts.org/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="src/main.css">
 </head>
 <body class="flex h-screen overflow-hidden">
 
-    <!-- Sidebar -->
     <aside class="w-64 bg-gray-800 text-white p-4 flex flex-col shadow-lg rounded-r-xl">
         <div class="text-3xl font-extrabold mb-8 text-blue-400 tracking-wider">SIEM Pro</div>
         <nav class="flex-grow">
@@ -49,33 +45,26 @@
         </div>
     </aside>
 
-    <!-- Main Content Area -->
     <main class="flex-1 p-8 overflow-y-auto">
-        <!-- Dashboard Section -->
         <section id="dashboard-section" class="active-section">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Threat Overview</h1>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                <!-- Card 1: Critical Alerts -->
                 <div class="card p-6 rounded-xl shadow-xl border border-red-600">
                     <h2 class="text-xl font-semibold mb-2 text-red-400">Critical Alerts</h2>
                     <p id="critical-alerts-count" class="text-6xl font-bold text-red-500 animate-pulse">0</p>
                     <p class="text-gray-400 mt-2">New critical alerts (24h)</p>
                 </div>
-                <!-- Card 2: Events Per Second (EPS) -->
                 <div class="card p-6 rounded-xl shadow-xl border border-blue-600">
                     <h2 class="text-xl font-semibold mb-2 text-blue-400">Events Per Second (EPS)</h2>
                     <p id="eps-count" class="text-6xl font-bold text-blue-500">0</p>
                     <p class="text-gray-400 mt-2">Current ingestion rate</p>
                 </div>
-                <!-- Card 3: Top Event Sources -->
                 <div class="card p-6 rounded-xl shadow-xl border border-purple-600">
                     <h2 class="text-xl font-semibold mb-2 text-purple-400">Top Event Sources</h2>
                     <ul id="top-sources-list" class="list-none text-gray-300 text-lg">
-                        <!-- Dynamic content -->
-                    </ul>
+                        </ul>
                 </div>
-                <!-- Card 4: Unassigned Alerts -->
                 <div class="card p-6 rounded-xl shadow-xl border border-yellow-600">
                     <h2 class="text-xl font-semibold mb-2 text-yellow-400">Unassigned Alerts</h2>
                     <p id="unassigned-alerts-count" class="text-6xl font-bold text-yellow-500">0</p>
@@ -83,14 +72,11 @@
                 </div>
             </div>
 
-            <!-- Dashboard Charts -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <div class="card p-6 rounded-xl shadow-xl">
                     <h2 class="text-xl font-semibold mb-4 text-orange-400">Alerts Trend (Last 6 Hours)</h2>
                     <div class="relative h-48 bg-gray-900 rounded-lg p-4 flex items-end justify-around">
-                        <!-- Static Line Chart Placeholder -->
                         <div class="absolute inset-0 flex items-end p-4 justify-around">
-                            <!-- Vertical guides -->
                             <div class="absolute left-0 right-0 top-4 bottom-4 border-l border-r border-dashed border-gray-700 mx-auto w-full flex justify-around">
                                 <div class="h-full border-r border-dashed border-gray-700"></div>
                                 <div class="h-full border-r border-dashed border-gray-700"></div>
@@ -98,15 +84,13 @@
                                 <div class="h-full border-r border-dashed border-gray-700"></div>
                                 <div class="h-full border-r border-dashed border-gray-700"></div>
                             </div>
-                            <!-- Horizontal guides -->
                             <div class="absolute left-4 right-4 top-0 bottom-0 border-t border-b border-dashed border-gray-700 my-auto h-full flex flex-col justify-around">
                                 <div class="w-full border-b border-dashed border-gray-700"></div>
                                 <div class="w-full border-b border-dashed border-gray-700"></div>
                                 <div class="w-full border-b border-dashed border-gray-700"></div>
                             </div>
                             <div id="alerts-line-chart" class="absolute inset-0">
-                                <!-- Dots and Lines will be dynamically generated by JS -->
-                            </div>
+                                </div>
                         </div>
 
                         <div class="flex flex-col items-center absolute bottom-1 left-4 text-xs text-gray-500">6h</div>
@@ -116,7 +100,6 @@
                 <div class="card p-6 rounded-xl shadow-xl">
                     <h2 class="text-xl font-semibold mb-4 text-teal-400">Event Volume by Type</h2>
                     <div class="h-48 bg-gray-900 rounded-lg p-4 flex flex-col justify-around">
-                        <!-- Proportional bars for event types -->
                         <div class="flex items-center mb-2">
                             <div class="w-6 h-4 bg-green-500 rounded-full mr-3 flex-shrink-0"></div>
                             <div class="flex-grow bg-gray-700 rounded-full h-3">
@@ -149,18 +132,26 @@
                 </div>
             </div>
 
-            <!-- Recent Events/Logs -->
             <div class="card p-6 rounded-xl shadow-xl mb-8">
                 <h2 class="text-xl font-semibold mb-4 text-green-400">Recent Security Events</h2>
                 <div id="recent-events-log-viewer" class="log-viewer h-64 overflow-y-auto bg-gray-900 p-4 rounded-lg text-sm text-gray-300">
-                    <!-- Dynamic Log Entries will be inserted here by JavaScript -->
-                </div>
+                    </div>
             </div>
         </section>
 
-        <!-- Logs Section -->
+        ---
+
         <section id="logs-section" class="hidden">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Log Explorer</h1>
+
+            <div class="card p-6 rounded-xl shadow-xl mb-8">
+                <h2 class="text-xl font-semibold mb-4 text-green-400">Upload New Log</h2>
+                <textarea id="logInput" rows="10" cols="80" placeholder="Paste your raw log line(s) here..."
+                          class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px] text-gray-200 resize-y mb-4"></textarea>
+                <button id="sendLogButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg">Send Log</button>
+                <p id="uploadStatus" class="mt-2 text-sm"></p>
+            </div>
+
             <div class="card p-6 rounded-xl shadow-xl">
                 <div class="flex flex-wrap items-center mb-4 space-x-0 space-y-2 md:space-y-0 md:space-x-4">
                     <input type="text" id="log-filter-input" placeholder="Filter logs..." class="flex-1 p-3 rounded-lg bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px] text-gray-200">
@@ -192,12 +183,10 @@
                     <button id="search-logs-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg">Search</button>
                 </div>
                 <div id="log-explorer-viewer" class="log-viewer h-[calc(100vh-280px)] overflow-y-auto bg-gray-900 p-4 rounded-lg text-sm text-gray-300 border border-gray-700">
-                    <!-- More detailed log entries will be inserted here by JavaScript -->
-                </div>
+                    </div>
             </div>
         </section>
 
-        <!-- Alerts Section -->
         <section id="alerts-section" class="hidden">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Active Alerts</h1>
             <div class="card p-6 rounded-xl shadow-xl">
@@ -213,13 +202,11 @@
                         </tr>
                     </thead>
                     <tbody id="alerts-table-body" class="divide-y divide-gray-700">
-                        <!-- Dynamic Alert Entries will be inserted here by JavaScript -->
-                    </tbody>
+                        </tbody>
                 </table>
             </div>
         </section>
 
-        <!-- Reports Section (Placeholder) -->
         <section id="reports-section" class="hidden">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Security Reports</h1>
             <div class="card p-6 rounded-xl shadow-xl">
@@ -249,7 +236,6 @@
 
     </main>
 
-    <!-- Main JavaScript for UI logic -->
     <script src="src/utils.js"></script>
     <script src="src/api.js"></script>
     <script src="src/main.js"></script>

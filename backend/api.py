@@ -10,7 +10,7 @@ from backend.config import Config
 from backend.database.db_client import SiemDatabase
 from backend.core.log_parser import LogParser
 from backend.core.detection_rules import DetectionRules
-from backend.database.models import LogEntry, Alert
+from backend.database.models import LogEntry, Alert # Ensure LogEntry and Alert are imported
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -85,6 +85,49 @@ def filter_logs():
     except Exception as e:
         app.logger.error(f"Error filtering logs: {e}")
         return jsonify({"error": "Error filtering logs. Please try again."}), 500
+
+@app.route('/api/logs/ingest', methods=['POST'])
+def ingest_log():
+    """
+    Receives raw log data, parses it, stores it, and runs detection rules.
+    Expected request body: {"raw_log": "your raw log line here"}
+    """
+    try:
+        data = request.get_json()
+        if not data or 'raw_log' not in data:
+            return jsonify({"error": "Missing 'raw_log' in request body"}), 400
+
+        raw_log = data['raw_log']
+        # The log_parser.parse_log_entry method should return a dictionary
+        # that directly maps to LogEntry constructor arguments.
+        parsed_log_data = log_parser.parse_log_entry(raw_log)
+
+        # Create a LogEntry object from parsed data, handling defaults if parser misses something
+        log_entry = LogEntry(
+            timestamp=parsed_log_data.get('timestamp', datetime.now()),
+            host=parsed_log_data.get('host', 'unknown_host'),
+            source=parsed_log_data.get('source', 'unknown_source'),
+            level=parsed_log_data.get('level', 'INFO'),
+            message=parsed_log_data.get('message', raw_log),
+            source_ip_host=parsed_log_data.get('source_ip_host'),
+            destination_ip_host=parsed_log_data.get('destination_ip_host'),
+            raw_log=raw_log # Always store the original raw log
+        )
+
+        # Insert the LogEntry object into the database
+        inserted_id = db_client.insert_log(log_entry)
+        print(f"Ingested log with ID: {inserted_id}")
+
+        # Run detection rules on the newly ingested log (LogEntry object)
+        rules_engine.run_rules_on_log(log_entry)
+        print(f"Detection rules run for log: {log_entry.message[:50]}...")
+
+        return jsonify({"message": "Log ingested successfully", "log_id": str(inserted_id)}), 201
+
+    except Exception as e:
+        # Log the full traceback for debugging in a production environment
+        app.logger.error(f"Error ingesting log: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/alerts/open', methods=['GET'])
 def get_open_alerts():
@@ -165,13 +208,11 @@ def initialize_mock_data_api_side():
     print("Checking for existing data before initializing mock data...")
     # Check if there are any logs or alerts already in the database
     # This prevents re-inserting data on every worker boot if the DB is persistent
-    # Corrected: Removed limit=1 from get_open_alerts as it doesn't support it
     if db_client.get_recent_logs(limit=1) or db_client.get_open_alerts():
         print("Existing data found. Skipping mock data initialization.")
         return
 
     print("No existing data found. Initializing mock data for API endpoints...")
-    from backend.core.log_receiver import process_raw_log
 
     sample_logs_for_init = [
         "Jun 17 10:00:01 host-a kernel: [INFO] System boot successful.",
@@ -191,26 +232,37 @@ def initialize_mock_data_api_side():
         "Jun 17 10:01:20 db-dev-02 netflow: [ALERT] Suspicious high volume outbound connections to 172.16.20.100."
     ]
     for raw_log in sample_logs_for_init:
-        processed_log = log_parser.parse_log(raw_log)
-        if processed_log:
-            db_client.insert_log(processed_log.to_dict())
-            rules_engine.run_rules_on_log(processed_log) # Also run detection rules
+        parsed_data = log_parser.parse_log_entry(raw_log)
+        if parsed_data:
+            # Create a LogEntry object to insert
+            log_entry_obj = LogEntry(
+                timestamp=parsed_data.get('timestamp', datetime.now()),
+                host=parsed_data.get('host', 'unknown_host'),
+                source=parsed_data.get('source', 'unknown_source'),
+                level=parsed_data.get('level', 'INFO'),
+                message=parsed_data.get('message', raw_log),
+                source_ip_host=parsed_data.get('source_ip_host'),
+                destination_ip_host=parsed_data.get('destination_ip_host'),
+                raw_log=raw_log
+            )
+            db_client.insert_log(log_entry_obj) # Insert LogEntry object
+            rules_engine.run_rules_on_log(log_entry_obj) # Run rules on LogEntry object
 
-    # Add some mock alerts directly
+    # Add some mock alerts directly. Ensure these are inserted as Alert objects.
     db_client.insert_alert(Alert(
         timestamp=datetime.now() - timedelta(minutes=10),
         severity="High",
         description="API Mock Alert: Multiple failed logins detected.",
         source_ip_host="192.168.1.50",
         status="Open"
-    ).to_dict())
+    ))
     db_client.insert_alert(Alert(
         timestamp=datetime.now() - timedelta(minutes=20),
         severity="Medium",
         description="API Mock Alert: Unusual data transfer volume.",
         source_ip_host="server-b",
         status="Open"
-    ).to_dict())
+    ))
     print("Mock data initialization complete.")
 
 
