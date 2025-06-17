@@ -165,7 +165,8 @@ def initialize_mock_data_api_side():
     print("Checking for existing data before initializing mock data...")
     # Check if there are any logs or alerts already in the database
     # This prevents re-inserting data on every worker boot if the DB is persistent
-    if db_client.get_recent_logs(limit=1) or db_client.get_open_alerts(limit=1):
+    # Corrected: Removed limit=1 from get_open_alerts as it doesn't support it
+    if db_client.get_recent_logs(limit=1) or db_client.get_open_alerts():
         print("Existing data found. Skipping mock data initialization.")
         return
 
