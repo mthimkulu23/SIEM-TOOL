@@ -1,0 +1,97 @@
+/* frontend/src/main.css */
+
+/* Base styles for a sleek, dark theme */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #0d1117; /* Even darker background for more contrast */
+    color: #e2e8f0; /* Light text for readability */
+}
+
+/* Custom scrollbar for log viewer to match theme */
+.log-viewer::-webkit-scrollbar {
+    width: 8px;
+}
+.log-viewer::-webkit-scrollbar-track {
+    background: #1e2a3a; /* Darker track */
+    border-radius: 10px;
+}
+.log-viewer::-webkit-scrollbar-thumb {
+    background: #4a5568; /* Muted thumb */
+    border-radius: 10px;
+}
+.log-viewer::-webkit-scrollbar-thumb:hover {
+    background: #626f84; /* Lighter thumb on hover */
+}
+
+/* Card styles with subtle depth and transition */
+.card {
+    background: linear-gradient(135deg, #1f2a3a, #1a202c); /* Subtle gradient for depth */
+    border: 1px solid #2d3748; /* Slightly lighter border */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); /* Deeper shadow */
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+.card:hover {
+    transform: translateY(-8px); /* More pronounced lift */
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.6); /* Even deeper shadow on hover */
+}
+
+/* Active link styling for sidebar */
+.active-link {
+    background-color: #2563eb; /* Tailwind blue-600 */
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.4); /* Blue shadow for active state */
+    font-weight: 600; /* Slightly bolder for emphasis */
+}
+
+/* Chart bar styling for visual appeal */
+.chart-bar {
+    background-color: #3b82f6; /* Tailwind blue-500 */
+    border-radius: 4px; /* Rounded tops for bars */
+    transition: height 0.6s ease-out; /* Smooth height transition */
+}
+
+/* Line chart dot and line style */
+.line-chart-dot {
+    background-color: #6366f1; /* Indigo color for dots */
+    border: 2px solid #a78bfa; /* Lighter border for pop */
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    position: absolute;
+    bottom: var(--dot-bottom); /* Controlled by JS for height */
+    left: var(--dot-left); /* Controlled by JS for horizontal position */
+    transform: translateX(-50%);
+    transition: all 0.5s ease-out;
+    z-index: 10;
+}
+.line-chart-line {
+    background: linear-gradient(to right, #6366f1, #3b82f6); /* Gradient line */
+    height: 3px;
+    position: absolute;
+    bottom: var(--line-bottom);
+    left: var(--line-left);
+    width: var(--line-width);
+    transform-origin: left;
+    transition: all 0.5s ease-out;
+    z-index: 5;
+}
+
+/* Entry animation for new log entries */
+@keyframes fadeInSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.log-entry-animated {
+    animation: fadeInSlideUp 0.5s ease-out;
+}
+
+/* Styling for report output pre tag */
+#report-output pre {
+    white-space: pre-wrap; /* Ensure wrapping for long lines */
+    word-break: break-all; /* Break long words */
+}

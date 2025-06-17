@@ -1,0 +1,17 @@
+# requirements.txt
+# Python dependencies for the SIEM backend
+
+# Web framework (choose one and uncomment)
+Flask
+Flask-Cors # For handling CORS with Flask
+
+# FastAPI
+# uvicorn[standard] # ASGI server for FastAPI
+
+# MongoDB driver
+pymongo~=4.0 # Or specific version depending on your needs
+python-dotenv # For loading environment variables from .env
+
+# Other potential libraries (install as needed)
+regex # If using advanced regex features not in re module
+kafka-python # If integrating with Kafka
