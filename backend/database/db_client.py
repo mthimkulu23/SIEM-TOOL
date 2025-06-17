@@ -25,13 +25,12 @@ class SiemDatabase:
             self.alerts_collection = self.db[self.config.ALERTS_COLLECTION_NAME]
             print("Successfully connected to MongoDB Atlas.")
 
-            # RE-ENABLED THESE LINES: Create indexes for performance
-            self.logs_collection.create_index("timestamp", -1)
-            self.alerts_collection.create_index("timestamp", -1)
-            self.alerts_collection.create_index("status")
-            self.alerts_collection.create_index("severity")
+            # COMMENT OUT THESE LINES AGAIN
+            # self.logs_collection.create_index("timestamp", -1)
+            # self.alerts_collection.create_index("timestamp", -1)
+            # self.alerts_collection.create_index("status")
+            # self.alerts_collection.create_index("severity")
 
-            # Ensure mock data is cleared/not used if real connection succeeds
             self._mock_logs_storage = []
             self._mock_alerts_storage = []
 
@@ -47,30 +46,4 @@ class SiemDatabase:
 
         if self.client is None:
             self._initialize_mock_database()
-
-
-    def _initialize_mock_database(self):
-        print("Conceptual: In-memory database initialized (no actual MongoDB connection).")
-        self._mock_logs_storage = []
-        self._mock_alerts_storage = []
-
-    # Remember to also ensure the actual MongoDB interaction logic in your other methods
-    # (like insert_log, insert_alert, get_recent_logs, etc.) is uncommented and uses
-    # the 'if self.collection:' check. I've included `insert_log` as an example below.
-
-    def insert_log(self, log_entry: LogEntry) -> str | None:
-        log_dict = log_entry.to_dict()
-        if self.logs_collection: # Check if real connection was made
-            result = self.logs_collection.insert_one(log_dict)
-            log_entry._id = str(result.inserted_id) # Update the object with the real ID
-            return log_entry._id
-        else: # Fallback to mock if no real connection
-            mock_id = str(len(self._mock_logs_storage) + 1)
-            log_dict["_id"] = mock_id
-            self._mock_logs_storage.append(log_dict)
-            log_entry._id = mock_id
-            return mock_id
-
-    # The rest of your methods (insert_alert, get_recent_logs, get_all_logs, get_open_alerts, update_alert_status)
-    # should have their MongoDB specific code uncommented and be guarded by 'if self.collection_name:' checks
-    # similar to the `insert_log` example above.
+    # ... (rest of the class methods)
