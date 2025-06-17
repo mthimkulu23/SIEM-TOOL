@@ -1,10 +1,11 @@
 # backend/core/detection_rules.py
 
-from backend.database.models import LogEntry, Alert # Assuming these are defined here
-from backend.database.db_client import SiemDatabase # To interact with the database
+from backend.database.models import LogEntry, Alert
+from backend.database.db_client import SiemDatabase
 from backend.config import Config
 from datetime import datetime, timedelta
 import re
+from typing import Optional, List, Dict, Any # <-- ADD THIS LINE
 
 class DetectionRules:
     def __init__(self, db_client: SiemDatabase, config: Config):
@@ -93,7 +94,7 @@ class DetectionRules:
             print(f"Alert triggered: {alert_description}")
 
 
-    def _create_and_save_alert(self, severity: str, description: str, source_ip_host: Optional[str] = None, rule_name: Optional[str] = None, log_ids: Optional[list] = None):
+    def _create_and_save_alert(self, severity: str, description: str, source_ip_host: Optional[str] = None, rule_name: Optional[str] = None, log_ids: Optional[List[Any]] = None): # Changed Optional[list] to Optional[List[Any]] for better type hinting
         """Helper method to create and save an alert."""
         alert = Alert(
             timestamp=datetime.now(),
