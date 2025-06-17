@@ -3,6 +3,8 @@
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
+# Import ProxyFix for handling reverse proxies in deployment
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from backend.config import Config
 from backend.database.db_client import SiemDatabase
@@ -31,7 +33,11 @@ frontend_src_dir = os.path.join(current_dir, '..', 'frontend', 'src')
 # We'll serve index.html directly and then add a rule for /src
 # Initially, set static_folder to public for the root endpoint,
 # but we'll manually add a static rule for /src
-app = Flask(__name__) # Removed static_folder and static_url_path from here
+app = Flask(__name__)
+
+# Apply ProxyFix to trust X-Forwarded-* headers when running behind a reverse proxy (like Nginx, Load Balancer)
+# This ensures request.remote_addr gets the actual client IP, not the proxy's IP.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1, x_port=1, x_prefix=1)
 
 # Enable CORS for all API routes
 CORS(app)
@@ -54,11 +60,12 @@ def serve_src_files(filename):
     """
     return send_from_directory(frontend_src_dir, filename)
 
-# --- API Endpoints (rest of your code remains the same) ---
+# --- API Endpoints ---
 
 @app.route('/api/status', methods=['GET'])
 def get_api_status():
     db_connected = True
+    # In a real app, you might try a simple database query to verify connection
     return jsonify({"status": "running", "database_connected": db_connected})
 
 @app.route('/api/logs/recent', methods=['GET'])
@@ -77,7 +84,7 @@ def filter_logs():
     filtered_logs = [
         log for log in all_logs
         if (filter_text in log.message.lower() or
-            (log.ip_address and filter_text in log.ip_address.lower()) or
+            (log.ip_address and filter_text in log.ip_address.lower()) or # Added ip_address to filter
             filter_text in log.source.lower()) and \
            (source_filter == 'All' or log.source == source_filter) and \
            (level_filter == 'All' or log.level == level_filter)
