@@ -6,8 +6,8 @@
  */
 
 // Base URL for your backend API
-// IMPORTANT: Change this to your actual backend API URL when deploying!
-const API_BASE_URL = 'http://127.0.0.1:5000/api'; // Assuming Flask/FastAPI runs on 5000
+// IMPORTANT: This has been updated to your deployed Render backend URL.
+const API_BASE_URL = 'https://siem-tool.onrender.com/api';
 
 
 // Helper function for making authenticated API requests
