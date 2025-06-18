@@ -1,13 +1,5 @@
-// frontend/src/api.js
 
-// IMPORTANT: You MUST replace this placeholder with the actual PUBLIC URL of your deployed Render backend API.
-// Examples:
-// If your Render backend service is named 'siem-backend-api', its URL might be:
-// "https://siem-backend-api.onrender.com"
-//
-// You can find this URL in your Render dashboard, under the settings for your backend web service.
-// It will usually look something like 'https://your-service-name.onrender.com'.
-const API_BASE_URL = "https://siem-tool.onrender.com/"; // <-- *** UPDATE THIS LINE ***
+const API_BASE_URL = "https://siem-tool.onrender.com"; // <-- *** ENSURE THIS IS MY ACTUAL BACKEND URL ***
 
 // During local development, you would set this to:
 // const API_BASE_URL = "http://127.0.0.1:5000"; 
@@ -16,8 +8,13 @@ const API_BASE_URL = "https://siem-tool.onrender.com/"; // <-- *** UPDATE THIS L
 // you need the full, public URL of your backend.
 
 export async function fetchApiData(endpoint, options = {}) {
-    // Construct the full URL for the API request
-    const url = `${API_BASE_URL}${endpoint}`;
+    // Robustly construct the full URL, handling leading/trailing slashes.
+    // Removes any trailing slash from API_BASE_URL.
+    const baseUrlClean = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    
+    // Ensures endpoint has a leading slash and ADDS THE /api PREFIX
+    const endpointClean = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${baseUrlClean}/api${endpointClean}`; // *** KEY CHANGE: Added /api prefix ***
 
     try {
         const defaultOptions = {
