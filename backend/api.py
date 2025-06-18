@@ -78,7 +78,6 @@ def ingest_log():
 
         raw_log = data['raw_log']
         
-        # CORRECTED: Call parse_log_line instead of parse_log_entry
         log_entry_obj = log_parser.parse_log_line(raw_log)
 
         # DEBUG PRINT: What is the type right before insertion?
@@ -95,7 +94,7 @@ def ingest_log():
             
             return jsonify({"message": "Log ingested successfully", "log_id": str(inserted_id)}), 201
         else:
-            print(f"ERROR: API: Failed to insert log: {raw_log[:100]}...")
+            print(f"ERROR: API: Failed to ingest log: {raw_log[:100]}...")
             return jsonify({"error": "Failed to ingest log into database"}), 500
 
     except Exception as e:
@@ -138,7 +137,7 @@ def ingest_network_flow():
             # You might add detection rules for network flows here later
             return jsonify({"message": "Network flow ingested successfully", "flow_id": str(inserted_id)}), 201
         else:
-            print(f"ERROR: API: Failed to ingest network flow: {flow_data.get('source_ip')} -> {flow_data.get('destination_ip')}")
+            print(f"ERROR: API: Failed to insert network flow: {flow_data.get('source_ip')} -> {flow_data.get('destination_ip')}")
             return jsonify({"error": "Failed to ingest network flow"}), 500
 
     except Exception as e:
@@ -256,9 +255,10 @@ def initialize_mock_data_api_side():
     This function is now called when the Flask app starts.
     """
     print("Checking for existing data before initializing mock data...")
-    if db_client.get_recent_logs(limit=1) or db_client.get_open_alerts() or db_client.get_recent_network_flows(limit=1): # NEW: Check network flows too
-        print("Existing data found. Skipping mock data initialization.")
-        return
+    # TEMPORARY: Comment out the check below to force mock data initialization for debugging
+    # if db_client.get_recent_logs(limit=1) or db_client.get_open_alerts() or db_client.get_recent_network_flows(limit=1):
+    #     print("Existing data found. Skipping mock data initialization.")
+    #     return
 
     print("No existing data found. Initializing mock data for API endpoints...")
 
@@ -280,10 +280,8 @@ def initialize_mock_data_api_side():
         "Jun 17 10:01:20 db-dev-02 netflow: [ALERT] Suspicious high volume outbound connections to 172.16.20.100."
     ]
     for raw_log in sample_logs_for_init:
-        # CORRECTED: Call parse_log_line instead of parse_log_entry for mock data init
         log_entry_obj = log_parser.parse_log_line(raw_log)
-        if log_entry_obj: # Ensure it's not None
-            # DEBUG PRINT: What is the type right before insertion in mock data init?
+        if log_entry_obj:
             print(f"DEBUG (api.py - mock init): Type of log_entry_obj: {type(log_entry_obj)}")
             print(f"DEBUG (api.py - mock init): Is LogEntry from mock init instance of backend.database.models.LogEntry? {isinstance(log_entry_obj, LogEntry)}")
             
@@ -293,7 +291,7 @@ def initialize_mock_data_api_side():
                 rules_engine.run_rules_on_log(log_entry_obj) 
             else:
                 print(f"WARNING: Failed to insert mock log: {raw_log}")
-        else: # This block would execute if parse_log_line returns None (though it should always return LogEntry now)
+        else:
             print(f"WARNING: Log parser returned None for raw_log: {raw_log}")
 
     db_client.insert_alert(Alert(
@@ -320,7 +318,6 @@ def initialize_mock_data_api_side():
         NetworkFlowEntry(timestamp=datetime.now() - timedelta(seconds=5), protocol="TCP", source_ip="192.168.1.50", destination_ip="203.0.113.1", source_port=45678, destination_port=80, byte_count=1200, application_layer_protocol="HTTP", flags=["ACK", "PSH"])
     ]
     for flow_entry in sample_flows_for_init:
-        # DEBUG PRINT: What is the type right before insertion in mock data init?
         print(f"DEBUG (api.py - mock init): Type of flow_entry: {type(flow_entry)}")
         print(f"DEBUG (api.py - mock init): Is NetworkFlowEntry from mock init instance of backend.database.models.NetworkFlowEntry? {isinstance(flow_entry, NetworkFlowEntry)}")
 
