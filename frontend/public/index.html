@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Marvelous SIEM Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Corrected Google Fonts URL from fonts.org to fonts.googleapis.com -->
+    <!-- Corrected Google Fonts URL -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="src/main.css">
 </head>
@@ -46,7 +46,7 @@
         </div>
     </aside>
 
-    <main class="flex-1 p-8 overflow-y-auto" id="main-content"> <!-- Ensure main-content ID is here -->
+    <main class="flex-1 p-8 overflow-y-auto" id="main-content">
         <section id="dashboard-section" class="active-section">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Threat Overview</h1>
 
@@ -152,11 +152,7 @@
         </section>
 
 
-        <!-- These sections are commented out because they are loaded dynamically via renderPartial() in main.js -->
-        <!-- However, their HTML structure should exist in src/views/*.html files -->
-        <!-- They are included here for completeness of the original index.html context -->
-
-        <!-- logs-section and its content will be loaded from src/views/logs.html -->
+        <!-- These sections are present in index.html and shown/hidden by main.js -->
         <section id="logs-section" class="hidden">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Log Explorer</h1>
             <div class="card p-6 rounded-xl shadow-xl mb-8">
@@ -202,7 +198,6 @@
             </div>
         </section>
 
-        <!-- alerts-section and its content will be loaded from src/views/alerts.html -->
         <section id="alerts-section" class="hidden">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Active Alerts</h1>
             <div class="card p-6 rounded-xl shadow-xl">
@@ -223,7 +218,6 @@
             </div>
         </section>
 
-        <!-- reports-section and its content will be loaded from src/views/reports.html -->
         <section id="reports-section" class="hidden">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Security Reports</h1>
             <div class="card p-6 rounded-xl shadow-xl">

@@ -5,8 +5,10 @@
  */
 
 // Base URL for your backend API
-// IMPORTANT: This has been updated to your deployed Render backend URL.
-const API_BASE_URL = 'https://siem-tool.onrender.com/api';
+// IMPORTANT: This has been updated for LOCAL DEVELOPMENT.
+// When deploying your frontend to Render, you MUST change this back to your Render backend URL.
+const API_BASE_URL = 'http://127.0.0.1:5000/api';
+
 
 /**
  * Helper function for making API requests.
