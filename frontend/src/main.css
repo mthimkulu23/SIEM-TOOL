@@ -1,224 +1,97 @@
+/* frontend/src/main.css */
+
+/* Base styles for a sleek, dark theme */
 body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f4;
-    color: #333;
+    font-family: 'Inter', sans-serif;
+    background-color: #0d1117; /* Even darker background for more contrast */
+    color: #e2e8f0; /* Light text for readability */
 }
 
-header {
-    background-color: #283747;
-    color: white;
-    padding: 1rem;
-    text-align: center;
+/* Custom scrollbar for log viewer to match theme */
+.log-viewer::-webkit-scrollbar {
+    width: 8px;
+}
+.log-viewer::-webkit-scrollbar-track {
+    background: #1e2a3a; /* Darker track */
+    border-radius: 10px;
+}
+.log-viewer::-webkit-scrollbar-thumb {
+    background: #4a5568; /* Muted thumb */
+    border-radius: 10px;
+}
+.log-viewer::-webkit-scrollbar-thumb:hover {
+    background: #626f84; /* Lighter thumb on hover */
 }
 
-nav {
-    margin-top: 10px;
+/* Card styles with subtle depth and transition */
+.card {
+    background: linear-gradient(135deg, #1f2a3a, #1a202c); /* Subtle gradient for depth */
+    border: 1px solid #2d3748; /* Slightly lighter border */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); /* Deeper shadow */
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+.card:hover {
+    transform: translateY(-8px); /* More pronounced lift */
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.6); /* Even deeper shadow on hover */
 }
 
-nav button {
-    background-color: #34495e;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    margin: 0 5px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: background-color 0.3s ease;
+/* Active link styling for sidebar */
+.active-link {
+    background-color: #2563eb; /* Tailwind blue-600 */
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.4); /* Blue shadow for active state */
+    font-weight: 600; /* Slightly bolder for emphasis */
 }
 
-nav button:hover,
-nav button.active {
-    background-color: #1a242f;
+/* Chart bar styling for visual appeal */
+.chart-bar {
+    background-color: #3b82f6; /* Tailwind blue-500 */
+    border-radius: 4px; /* Rounded tops for bars */
+    transition: height 0.6s ease-out; /* Smooth height transition */
 }
 
-main {
-    padding: 20px;
+/* Line chart dot and line style */
+.line-chart-dot {
+    background-color: #6366f1; /* Indigo color for dots */
+    border: 2px solid #a78bfa; /* Lighter border for pop */
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    position: absolute;
+    bottom: var(--dot-bottom); /* Controlled by JS for height */
+    left: var(--dot-left); /* Controlled by JS for horizontal position */
+    transform: translateX(-50%);
+    transition: all 0.5s ease-out;
+    z-index: 10;
+}
+.line-chart-line {
+    background: linear-gradient(to right, #6366f1, #3b82f6); /* Gradient line */
+    height: 3px;
+    position: absolute;
+    bottom: var(--line-bottom);
+    left: var(--line-left);
+    width: var(--line-width);
+    transform-origin: left;
+    transition: all 0.5s ease-out;
+    z-index: 5;
 }
 
-.content-section {
-    display: none; /* Hidden by default */
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
+/* Entry animation for new log entries */
+@keyframes fadeInSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.log-entry-animated {
+    animation: fadeInSlideUp 0.5s ease-out;
 }
 
-.content-section.active {
-    display: block; /* Show active section */
-}
-
-h2 {
-    color: #283747;
-    border-bottom: 2px solid #eee;
-    padding-bottom: 10px;
-    margin-top: 0;
-}
-
-/* Dashboard Specific Styles */
-.metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin-bottom: 20px;
-}
-
-.metric-card {
-    background-color: #e8f0f7;
-    padding: 15px;
-    border-radius: 8px;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.metric-card h3 {
-    margin-top: 0;
-    color: #2c3e50;
-}
-
-.metric-card p {
-    font-size: 2.5em;
-    font-weight: bold;
-    color: #3498db;
-}
-
-#top-sources-list {
-    list-style: none;
-    padding: 0;
-    margin-top: 10px;
-}
-
-#top-sources-list li {
-    background-color: #f0f8ff;
-    padding: 8px 12px;
-    margin-bottom: 5px;
-    border-left: 4px solid #3498db;
-    border-radius: 4px;
-}
-
-/* Logs and Alerts Table Styles */
-.log-filters, form {
-    margin-bottom: 20px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
-}
-
-.log-filters input[type="text"],
-.log-filters select,
-form textarea {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 1rem;
-}
-
-.log-filters button,
-form button {
-    background-color: #2c3e50;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: background-color 0.3s ease;
-}
-
-.log-filters button:hover,
-form button:hover {
-    background-color: #1a242f;
-}
-
-form textarea {
-    width: 100%;
-    box-sizing: border-box; /* Include padding in element's total width and height */
-    resize: vertical;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
-
-table th, table td {
-    border: 1px solid #ddd;
-    padding: 10px;
-    text-align: left;
-}
-
-table th {
-    background-color: #f2f2f2;
-    font-weight: bold;
-    color: #555;
-}
-
-table tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-table tr:hover {
-    background-color: #f1f1f1;
-}
-
-.status-button {
-    background-color: #3498db;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.status-button:hover {
-    background-color: #2980b9;
-}
-
-.status-button.closed {
-    background-color: #2ecc71; /* Green for closed */
-}
-
-/* Reports Section */
-#daily-summary-output, #compliance-audit-output {
-    background-color: #f9f9f9;
-    border: 1px solid #eee;
-    padding: 15px;
-    white-space: pre-wrap; /* Preserves whitespace and wraps lines */
-    word-wrap: break-word; /* Breaks long words */
-    max-height: 400px;
-    overflow-y: auto;
-    border-radius: 5px;
-    margin-top: 10px;
-    font-size: 0.9em;
-}
-
-select#compliance-standard {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 1rem;
-    min-width: 150px;
-}
-
-button#generate-daily-summary,
-button#generate-compliance-report {
-    background-color: #2c3e50;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: background-color 0.3s ease;
-}
-
-button#generate-daily-summary:hover,
-button#generate-compliance-report:hover {
-    background-color: #1a242f;
+/* Styling for report output pre tag */
+#report-output pre {
+    white-space: pre-wrap; /* Ensure wrapping for long lines */
+    word-break: break-all; /* Break long words */
 }
