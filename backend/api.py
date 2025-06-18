@@ -137,7 +137,7 @@ def ingest_network_flow():
             # You might add detection rules for network flows here later
             return jsonify({"message": "Network flow ingested successfully", "flow_id": str(inserted_id)}), 201
         else:
-            print(f"ERROR: API: Failed to insert network flow: {flow_data.get('source_ip')} -> {flow_data.get('destination_ip')}")
+            print(f"ERROR: API: Failed to ingest network flow: {flow_data.get('source_ip')} -> {flow_data.get('destination_ip')}")
             return jsonify({"error": "Failed to ingest network flow"}), 500
 
     except Exception as e:
@@ -166,56 +166,81 @@ def get_open_alerts():
 
 @app.route('/api/dashboard/metrics', methods=['GET'])
 def get_dashboard_metrics():
-    critical_alerts = db_client.get_open_alerts(severity="Critical")
-    critical_alerts_count = len(critical_alerts)
+    # DEBUG START: Trace execution in get_dashboard_metrics
+    print("DEBUG (dashboard_metrics): Starting get_dashboard_metrics function.")
 
-    import random
-    eps_count = random.randint(1000, 1800) # Still random
+    try:
+        print("DEBUG (dashboard_metrics): Fetching critical alerts.")
+        critical_alerts = db_client.get_open_alerts(severity="Critical")
+        critical_alerts_count = len(critical_alerts)
+        print(f"DEBUG (dashboard_metrics): Critical alerts count: {critical_alerts_count}")
 
-    recent_logs = db_client.get_recent_logs(limit=100)
-    source_counts = defaultdict(int)
-    level_counts = defaultdict(int)
+        import random
+        eps_count = random.randint(1000, 1800) # Still random
+        print(f"DEBUG (dashboard_metrics): EPS count: {eps_count}")
 
-    for log in recent_logs:
-        source_counts[log.source] += 1
-        level_counts[log.level] += 1
+        print("DEBUG (dashboard_metrics): Fetching recent logs for source and level counts.")
+        recent_logs = db_client.get_recent_logs(limit=100)
+        source_counts = defaultdict(int)
+        level_counts = defaultdict(int)
 
-    total_logs_for_sources = sum(source_counts.values())
-    top_sources = []
-    if total_logs_for_sources > 0:
-        sorted_sources = sorted(source_counts.items(), key=lambda item: item[1], reverse=True)
-        for source, count in sorted_sources[:4]:
-            percentage = (count / total_logs_for_sources) * 100
-            top_sources.append({"name": source, "percentage": round(percentage)})
-    
-    total_logs_for_levels = sum(level_counts.values())
-    event_volume_by_type = {
-        "INFO": 0, "WARN": 0, "ERROR": 0, "CRITICAL": 0, "AUTH_FAILED": 0, "OTHER": 0 # Added AUTH_FAILED
-    }
-    if total_logs_for_levels > 0:
-        for level, count in level_counts.items():
-            percentage = (count / total_logs_for_levels) * 100
-            # Aggregate specific levels, remaining go to OTHER
-            if level in event_volume_by_type:
-                event_volume_by_type[level] += round(percentage, 1) # Use += for safety with duplicates
-            elif level.startswith("AUTH"): # Catch all AUTH levels for dashboard
-                event_volume_by_type["AUTH_FAILED"] += round(percentage, 1)
-            else:
-                event_volume_by_type["OTHER"] += round(percentage, 1)
-    
-    unassigned_alerts = db_client.get_open_alerts()
-    unassigned_alerts_count = len(unassigned_alerts)
+        print("DEBUG (dashboard_metrics): Processing recent logs for counts.")
+        for log in recent_logs:
+            source_counts[log.source] += 1
+            level_counts[log.level] += 1
+        print(f"DEBUG (dashboard_metrics): Source counts: {source_counts}")
+        print(f"DEBUG (dashboard_metrics): Level counts: {level_counts}")
 
-    alert_trend_data = [random.randint(5, 20) for _ in range(7)] 
 
-    return jsonify({
-        "critical_alerts_count": critical_alerts_count,
-        "eps_count": eps_count,
-        "top_sources": top_sources,
-        "unassigned_alerts_count": unassigned_alerts_count,
-        "alert_trend_data": alert_trend_data,
-        "event_volume_by_type": event_volume_by_type
-    })
+        total_logs_for_sources = sum(source_counts.values())
+        top_sources = []
+        if total_logs_for_sources > 0:
+            sorted_sources = sorted(source_counts.items(), key=lambda item: item[1], reverse=True)
+            for source, count in sorted_sources[:4]:
+                percentage = (count / total_logs_for_sources) * 100
+                top_sources.append({"name": source, "percentage": round(percentage)})
+        print(f"DEBUG (dashboard_metrics): Top sources: {top_sources}")
+        
+        total_logs_for_levels = sum(level_counts.values())
+        event_volume_by_type = {
+            "INFO": 0, "WARN": 0, "ERROR": 0, "CRITICAL": 0, "AUTH_FAILED": 0, "OTHER": 0
+        }
+        print("DEBUG (dashboard_metrics): Calculating event volume by type.")
+        if total_logs_for_levels > 0:
+            for level, count in level_counts.items():
+                percentage = (count / total_logs_for_levels) * 100
+                if level in event_volume_by_type:
+                    event_volume_by_type[level] += round(percentage, 1)
+                elif level.startswith("AUTH"):
+                    event_volume_by_type["AUTH_FAILED"] += round(percentage, 1)
+                else:
+                    event_volume_by_type["OTHER"] += round(percentage, 1)
+        print(f"DEBUG (dashboard_metrics): Event volume by type: {event_volume_by_type}")
+        
+        print("DEBUG (dashboard_metrics): Fetching unassigned alerts.")
+        unassigned_alerts = db_client.get_open_alerts() # Reusing get_open_alerts, adjust if "unassigned" means something else
+        unassigned_alerts_count = len(unassigned_alerts)
+        print(f"DEBUG (dashboard_metrics): Unassigned alerts count: {unassigned_alerts_count}")
+
+        alert_trend_data = [random.randint(5, 20) for _ in range(7)] 
+        print(f"DEBUG (dashboard_metrics): Alert trend data: {alert_trend_data}")
+
+        metrics_response = {
+            "critical_alerts_count": critical_alerts_count,
+            "eps_count": eps_count,
+            "top_sources": top_sources,
+            "unassigned_alerts_count": unassigned_alerts_count,
+            "alert_trend_data": alert_trend_data,
+            "event_volume_by_type": event_volume_by_type
+        }
+        print(f"DEBUG (dashboard_metrics): Returning metrics response: {metrics_response}")
+        return jsonify(metrics_response)
+
+    except Exception as e:
+        print(f"ERROR (dashboard_metrics): An error occurred: {e}", exc_info=True)
+        app.logger.error(f"Error getting dashboard metrics: {e}", exc_info=True)
+        return jsonify({"error": "Failed to retrieve dashboard metrics."}), 500
+
 
 @app.route('/api/alerts/<string:alert_id>/status', methods=['PUT'])
 def update_alert_status(alert_id: str):
@@ -255,10 +280,10 @@ def initialize_mock_data_api_side():
     This function is now called when the Flask app starts.
     """
     print("Checking for existing data before initializing mock data...")
-    # TEMPORARY: Comment out the check below to force mock data initialization for debugging
-    # if db_client.get_recent_logs(limit=1) or db_client.get_open_alerts() or db_client.get_recent_network_flows(limit=1):
-    #     print("Existing data found. Skipping mock data initialization.")
-    #     return
+    # Uncomment the check below now that mock data initialization is confirmed to work
+    if db_client.get_recent_logs(limit=1) or db_client.get_open_alerts() or db_client.get_recent_network_flows(limit=1):
+        print("Existing data found. Skipping mock data initialization.")
+        return
 
     print("No existing data found. Initializing mock data for API endpoints...")
 
