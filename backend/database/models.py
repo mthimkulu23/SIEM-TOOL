@@ -1,9 +1,11 @@
 # backend/database/models.py
 
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from dataclasses import dataclass, field # Import dataclass and field
+from bson import ObjectId # Import ObjectId for MongoDB _id handling
 
-# Base class for all models
+# Base class for all models (useful if you have common methods)
 class BaseModel:
     def __init__(self, **kwargs):
         # Assign all keyword arguments as attributes
@@ -12,69 +14,29 @@ class BaseModel:
 
     def to_dict(self) -> Dict[str, Any]:
         """Converts the model's attributes to a dictionary, suitable for MongoDB insertion."""
+        # This generic to_dict is usually overridden by dataclasses' asdict or specific implementations
         data = self.__dict__.copy()
-        # Convert datetime objects to ISO format strings for consistency if needed,
-        # or rely on PyMongo's default handling for datetime objects.
-        # For MongoDB, direct datetime objects are usually preferred.
+        # Convert ObjectId to string for JSON serialization if present
+        if '_id' in data and isinstance(data['_id'], ObjectId):
+            data['_id'] = str(data['_id'])
         return data
 
+@dataclass
 class LogEntry(BaseModel):
-    def __init__(self,
-                 timestamp: datetime,
-                 host: str,
-                 source: str,
-                 level: str,
-                 message: str,
-                 source_ip_host: Optional[str] = None,
-                 destination_ip_host: Optional[str] = None,
-                 raw_log: Optional[str] = None,
-                 **kwargs):
-        super().__init__(**kwargs)
-
-        self.timestamp = timestamp
-        self.host = host
-        self.source = source
-        self.level = level
-        self.message = message
-        self.source_ip_host = source_ip_host
-        self.destination_ip_host = destination_ip_host
-        self.raw_log = raw_log
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
-        """
-        Creates a LogEntry instance from a dictionary (e.g., from MongoDB).
-        Handles converting MongoDB's _id to 'id' if present, and ensures timestamp is datetime.
-        """
-        # Remove '_id' from data if present and store it as 'id' for the object if needed
-        # Or you can just pass everything and let the LogEntry constructor handle it
-        log_id = data.pop('_id', None) # Remove MongoDB's _id if it exists
-        
-        # Ensure timestamp is a datetime object
-        if isinstance(data.get('timestamp'), str):
-            data['timestamp'] = datetime.fromisoformat(data['timestamp']) # Adjust format if needed
-
-        # Create LogEntry instance
-        log_entry = cls(
-            timestamp=data.get('timestamp'),
-            host=data.get('host'),
-            source=data.get('source'),
-            level=data.get('level'),
-            message=data.get('message'),
-            source_ip_host=data.get('source_ip_host'),
-            destination_ip_host=data.get('destination_ip_host'),
-            raw_log=data.get('raw_log')
-        )
-        # If you want to keep the MongoDB _id as 'id' on the object
-        if log_id:
-            log_entry.id = str(log_id) # Convert ObjectId to string for easier handling
-        return log_entry
-
+    timestamp: datetime
+    host: str
+    source: str
+    level: str
+    message: str
+    source_ip_host: Optional[str] = None
+    destination_ip_host: Optional[str] = None
+    raw_log: Optional[str] = None
+    _id: Optional[ObjectId] = None # Add _id for MongoDB compatibility
 
     def to_dict(self) -> Dict[str, Any]:
         """
         Converts the LogEntry object to a dictionary for database storage.
-        Handles datetime objects for MongoDB compatibility.
+        Handles datetime objects and ObjectId for MongoDB compatibility.
         """
         data = {
             "timestamp": self.timestamp,
@@ -86,58 +48,47 @@ class LogEntry(BaseModel):
             "destination_ip_host": self.destination_ip_host,
             "raw_log": self.raw_log
         }
-        # Filter out None values if you don't want them stored explicitly
+        if self._id:
+            data["_id"] = self._id # Keep as ObjectId if inserting/updating
         return {k: v for k, v in data.items() if v is not None}
-
-
-class Alert(BaseModel):
-    def __init__(self,
-                 timestamp: datetime,
-                 severity: str,
-                 description: str,
-                 source_ip_host: Optional[str] = None,
-                 status: str = "Open",
-                 assigned_to: Optional[str] = None,
-                 comments: Optional[list] = None,
-                 rule_name: Optional[str] = None,
-                 log_ids: Optional[list] = None, # List of _id from related logs
-                 **kwargs):
-        super().__init__(**kwargs)
-
-        self.timestamp = timestamp
-        self.severity = severity
-        self.description = description
-        self.source_ip_host = source_ip_host
-        self.status = status
-        self.assigned_to = assigned_to
-        self.comments = comments if comments is not None else []
-        self.rule_name = rule_name
-        self.log_ids = log_ids if log_ids is not None else []
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
         """
-        Creates an Alert instance from a dictionary (e.g., from MongoDB).
+        Creates a LogEntry instance from a dictionary (e.g., from MongoDB).
+        Handles converting MongoDB's _id and ensures timestamp is datetime.
         """
-        alert_id = data.pop('_id', None)
-
+        _id = data.pop('_id', None)
+        
         if isinstance(data.get('timestamp'), str):
             data['timestamp'] = datetime.fromisoformat(data['timestamp'])
 
-        alert = cls(
+        log_entry = cls(
             timestamp=data.get('timestamp'),
-            severity=data.get('severity'),
-            description=data.get('description'),
+            host=data.get('host'),
+            source=data.get('source'),
+            level=data.get('level'),
+            message=data.get('message'),
             source_ip_host=data.get('source_ip_host'),
-            status=data.get('status', 'Open'),
-            assigned_to=data.get('assigned_to'),
-            comments=data.get('comments'),
-            rule_name=data.get('rule_name'),
-            log_ids=data.get('log_ids')
+            destination_ip_host=data.get('destination_ip_host'),
+            raw_log=data.get('raw_log'),
+            _id=_id # Pass _id directly to constructor
         )
-        if alert_id:
-            alert.id = str(alert_id)
-        return alert
+        return log_entry
+
+
+@dataclass
+class Alert(BaseModel):
+    timestamp: datetime
+    severity: str
+    description: str
+    status: str = "Open"
+    source_ip_host: Optional[str] = None
+    assigned_to: Optional[str] = None
+    comments: List[str] = field(default_factory=list)
+    rule_name: Optional[str] = None
+    log_ids: List[str] = field(default_factory=list) # List of string _id from related logs
+    _id: Optional[ObjectId] = None # Add _id for MongoDB compatibility
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -154,4 +105,92 @@ class Alert(BaseModel):
             "rule_name": self.rule_name,
             "log_ids": self.log_ids
         }
+        if self._id:
+            data["_id"] = self._id # Keep as ObjectId if inserting/updating
         return {k: v for k, v in data.items() if v is not None or k in ['comments', 'log_ids']}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]):
+        """
+        Creates an Alert instance from a dictionary (e.g., from MongoDB).
+        """
+        _id = data.pop('_id', None)
+
+        if isinstance(data.get('timestamp'), str):
+            data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+
+        alert = cls(
+            timestamp=data.get('timestamp'),
+            severity=data.get('severity'),
+            description=data.get('description'),
+            source_ip_host=data.get('source_ip_host'),
+            status=data.get('status', 'Open'),
+            assigned_to=data.get('assigned_to'),
+            comments=data.get('comments', []),
+            rule_name=data.get('rule_name'),
+            log_ids=data.get('log_ids', []),
+            _id=_id # Pass _id directly to constructor
+        )
+        return alert
+
+# --- NEW: NetworkFlowEntry Model ---
+@dataclass
+class NetworkFlowEntry(BaseModel):
+    timestamp: datetime
+    protocol: str  # e.g., 'TCP', 'UDP', 'ICMP', 'ARP'
+    source_ip: str
+    destination_ip: str
+    source_port: Optional[int] = None
+    destination_port: Optional[int] = None
+    packet_count: int = 1 # For individual packets, or sum for flow aggregates
+    byte_count: int = 0   # For individual packets, or sum for flow aggregates
+    flags: List[str] = field(default_factory=list) # TCP flags like SYN, ACK
+    flow_duration_ms: Optional[int] = None # For aggregated flows
+    application_layer_protocol: Optional[str] = None # e.g., 'HTTP', 'DNS', 'SSH'
+    _id: Optional[ObjectId] = None # MongoDB _id
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Converts the NetworkFlowEntry object to a dictionary for database storage."""
+        data = {
+            "timestamp": self.timestamp,
+            "protocol": self.protocol,
+            "source_ip": self.source_ip,
+            "destination_ip": self.destination_ip,
+            "source_port": self.source_port,
+            "destination_port": self.destination_port,
+            "packet_count": self.packet_count,
+            "byte_count": self.byte_count,
+            "flags": self.flags,
+            "flow_duration_ms": self.flow_duration_ms,
+            "application_layer_protocol": self.application_layer_protocol
+        }
+        if self._id:
+            data["_id"] = self._id # Keep as ObjectId if inserting/updating
+        return {k: v for k, v in data.items() if v is not None or k in ['flags']}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]):
+        """Creates a NetworkFlowEntry instance from a dictionary."""
+        _id = data.pop('_id', None)
+
+        if isinstance(data.get('timestamp'), str):
+            try:
+                data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+            except ValueError:
+                # Handle cases where ISO format might not be strict (e.g., missing Z)
+                data['timestamp'] = datetime.strptime(data['timestamp'].replace('Z', ''), "%Y-%m-%dT%H:%M:%S.%f")
+        
+        return cls(
+            timestamp=data.get('timestamp'),
+            protocol=data.get('protocol'),
+            source_ip=data.get('source_ip'),
+            destination_ip=data.get('destination_ip'),
+            source_port=data.get('source_port'),
+            destination_port=data.get('destination_port'),
+            packet_count=data.get('packet_count', 1),
+            byte_count=data.get('byte_count', 0),
+            flags=data.get('flags', []),
+            flow_duration_ms=data.get('flow_duration_ms'),
+            application_layer_protocol=data.get('application_layer_protocol'),
+            _id=_id # Pass _id directly to constructor
+        )

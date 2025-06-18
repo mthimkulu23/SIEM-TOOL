@@ -3,14 +3,13 @@
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
-# Import ProxyFix for handling reverse proxies in deployment
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from backend.config import Config
 from backend.database.db_client import SiemDatabase
 from backend.core.log_parser import LogParser
 from backend.core.detection_rules import DetectionRules
-from backend.database.models import LogEntry, Alert # Ensure LogEntry and Alert are imported
+from backend.database.models import LogEntry, Alert, NetworkFlowEntry # NEW: Import NetworkFlowEntry
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -20,50 +19,31 @@ db_client = SiemDatabase(config)
 log_parser = LogParser()
 rules_engine = DetectionRules(db_client, config)
 
+print("Flask API: SiemDatabase, LogParser, DetectionRules initialized.")
+
 # --- Flask App Setup ---
-# Determine the base directory of the Flask app (backend folder)
 current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Define the path to the frontend's public directory for index.html
 frontend_public_dir = os.path.join(current_dir, '..', 'frontend', 'public')
-
-# Define the path to the frontend's src directory for JS and CSS
 frontend_src_dir = os.path.join(current_dir, '..', 'frontend', 'src')
 
-# Create the Flask application instance
 app = Flask(__name__)
-
-# Apply ProxyFix to trust X-Forwarded-* headers when running behind a reverse proxy (like Nginx, Load Balancer)
-# This ensures request.remote_addr gets the actual client IP, not the proxy's IP.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1, x_port=1, x_prefix=1)
-
-# Enable CORS for all API routes
 CORS(app)
 
 # --- Frontend Serving Routes ---
-
-# Route to serve the main index.html file
 @app.route('/')
 def serve_index():
-    """
-    Serves the main index.html file from the frontend/public directory.
-    """
     return send_from_directory(frontend_public_dir, 'index.html')
 
-# Route to serve files from the frontend/src directory (CSS, JS)
 @app.route('/src/<path:filename>')
 def serve_src_files(filename):
-    """
-    Serves files (CSS, JS) from the frontend/src directory when requested with /src/.
-    """
     return send_from_directory(frontend_src_dir, filename)
 
 # --- API Endpoints ---
 
 @app.route('/api/status', methods=['GET'])
 def get_api_status():
-    db_connected = True
-    # In a real app, you might try a simple database query to verify connection
+    db_connected = True # Placeholder, ideally check actual DB connection status
     return jsonify({"status": "running", "database_connected": db_connected})
 
 @app.route('/api/logs/recent', methods=['GET'])
@@ -83,7 +63,7 @@ def filter_logs():
         return jsonify([log.to_dict() for log in filtered_logs_data])
 
     except Exception as e:
-        app.logger.error(f"Error filtering logs: {e}")
+        app.logger.error(f"Error filtering logs: {e}", exc_info=True)
         return jsonify({"error": "Error filtering logs. Please try again."}), 500
 
 @app.route('/api/logs/ingest', methods=['POST'])
@@ -95,39 +75,82 @@ def ingest_log():
     try:
         data = request.get_json()
         if not data or 'raw_log' not in data:
-            return jsonify({"error": "Missing 'raw_log' in request body"}), 400
+            print("API Error: Missing 'raw_log' in request body or invalid JSON.")
+            return jsonify({"error": "Missing 'raw_log' field in JSON payload"}), 400
 
         raw_log = data['raw_log']
-        # The log_parser.parse_log_entry method should return a dictionary
-        # that directly maps to LogEntry constructor arguments.
-        parsed_log_data = log_parser.parse_log_entry(raw_log)
+        
+        log_entry_obj = log_parser.parse_log_entry(raw_log)
 
-        # Create a LogEntry object from parsed data, handling defaults if parser misses something
-        log_entry = LogEntry(
-            timestamp=parsed_log_data.get('timestamp', datetime.now()),
-            host=parsed_log_data.get('host', 'unknown_host'),
-            source=parsed_log_data.get('source', 'unknown_source'),
-            level=parsed_log_data.get('level', 'INFO'),
-            message=parsed_log_data.get('message', raw_log),
-            source_ip_host=parsed_log_data.get('source_ip_host'),
-            destination_ip_host=parsed_log_data.get('destination_ip_host'),
-            raw_log=raw_log # Always store the original raw log
-        )
-
-        # Insert the LogEntry object into the database
-        inserted_id = db_client.insert_log(log_entry)
-        print(f"Ingested log with ID: {inserted_id}")
-
-        # Run detection rules on the newly ingested log (LogEntry object)
-        rules_engine.run_rules_on_log(log_entry)
-        print(f"Detection rules run for log: {log_entry.message[:50]}...")
-
-        return jsonify({"message": "Log ingested successfully", "log_id": str(inserted_id)}), 201
+        inserted_id = db_client.insert_log(log_entry_obj)
+        
+        if inserted_id:
+            log_entry_obj._id = inserted_id 
+            print(f"API: Log ingested with ID: {inserted_id} (Host: {log_entry_obj.host}, Source: {log_entry_obj.source}, Level: {log_entry_obj.level})")
+            rules_engine.run_rules_on_log(log_entry_obj)
+            print(f"API: Detection rules run for log: {log_entry_obj.message[:50]}...")
+            
+            return jsonify({"message": "Log ingested successfully", "log_id": str(inserted_id)}), 201
+        else:
+            print(f"ERROR: API: Failed to insert log: {raw_log[:100]}...")
+            return jsonify({"error": "Failed to ingest log into database"}), 500
 
     except Exception as e:
-        # Log the full traceback for debugging in a production environment
         app.logger.error(f"Error ingesting log: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+# --- NEW: Network Flow Endpoints ---
+@app.route('/api/network_flows/ingest', methods=['POST'])
+def ingest_network_flow():
+    """
+    Receives structured network flow data from a capturing script.
+    Expected request body: JSON matching NetworkFlowEntry.to_dict() structure.
+    """
+    try:
+        flow_data = request.get_json()
+        if not flow_data:
+            print("API Error: Invalid JSON payload for network flow.")
+            return jsonify({"error": "Invalid JSON payload"}), 400
+
+        # Validate required fields (minimal validation for example)
+        required_fields = ['timestamp', 'protocol', 'source_ip', 'destination_ip']
+        if not all(field in flow_data for field in required_fields):
+            print(f"API Error: Missing required fields in network flow payload. Expected: {required_fields}")
+            return jsonify({"error": f"Missing required fields for network flow. Expected: {required_fields}"}), 400
+
+        # Create NetworkFlowEntry object from incoming data
+        # The from_dict method should handle datetime conversion from ISO string
+        flow_entry = NetworkFlowEntry.from_dict(flow_data)
+
+        inserted_id = db_client.insert_network_flow(flow_entry)
+        if inserted_id:
+            # Assign the generated MongoDB _id back to the NetworkFlowEntry object
+            flow_entry._id = inserted_id
+            print(f"API: Network flow ingested with ID: {inserted_id} (Src: {flow_entry.source_ip}, Dst: {flow_entry.destination_ip}, Proto: {flow_entry.protocol})")
+            # You might add detection rules for network flows here later
+            return jsonify({"message": "Network flow ingested successfully", "flow_id": str(inserted_id)}), 201
+        else:
+            print(f"ERROR: API: Failed to insert network flow: {flow_data.get('source_ip')} -> {flow_data.get('destination_ip')}")
+            return jsonify({"error": "Failed to ingest network flow"}), 500
+
+    except Exception as e:
+        app.logger.error(f"Error ingesting network flow: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/network_flows/recent', methods=['GET'])
+def get_recent_network_flows():
+    """
+    Retrieves recent network flows for display on the frontend.
+    """
+    try:
+        recent_flows = db_client.get_recent_network_flows(limit=50) # Adjust limit as needed
+        # Convert NetworkFlowEntry objects to dictionaries for JSON serialization
+        return jsonify([flow.to_dict() for flow in recent_flows])
+    except Exception as e:
+        app.logger.error(f"Error fetching recent network flows: {e}", exc_info=True)
+        return jsonify({"error": "Could not fetch network flows"}), 500
+# --- END NEW: Network Flow Endpoints ---
+
 
 @app.route('/api/alerts/open', methods=['GET'])
 def get_open_alerts():
@@ -140,12 +163,15 @@ def get_dashboard_metrics():
     critical_alerts_count = len(critical_alerts)
 
     import random
-    eps_count = random.randint(1000, 1800)
+    eps_count = random.randint(1000, 1800) # Still random
 
     recent_logs = db_client.get_recent_logs(limit=100)
     source_counts = defaultdict(int)
+    level_counts = defaultdict(int)
+
     for log in recent_logs:
         source_counts[log.source] += 1
+        level_counts[log.level] += 1
 
     total_logs_for_sources = sum(source_counts.values())
     top_sources = []
@@ -154,18 +180,34 @@ def get_dashboard_metrics():
         for source, count in sorted_sources[:4]:
             percentage = (count / total_logs_for_sources) * 100
             top_sources.append({"name": source, "percentage": round(percentage)})
-
+    
+    total_logs_for_levels = sum(level_counts.values())
+    event_volume_by_type = {
+        "INFO": 0, "WARN": 0, "ERROR": 0, "CRITICAL": 0, "AUTH_FAILED": 0, "OTHER": 0 # Added AUTH_FAILED
+    }
+    if total_logs_for_levels > 0:
+        for level, count in level_counts.items():
+            percentage = (count / total_logs_for_levels) * 100
+            # Aggregate specific levels, remaining go to OTHER
+            if level in event_volume_by_type:
+                event_volume_by_type[level] += round(percentage, 1) # Use += for safety with duplicates
+            elif level.startswith("AUTH"): # Catch all AUTH levels for dashboard
+                event_volume_by_type["AUTH_FAILED"] += round(percentage, 1)
+            else:
+                event_volume_by_type["OTHER"] += round(percentage, 1)
+    
     unassigned_alerts = db_client.get_open_alerts()
     unassigned_alerts_count = len(unassigned_alerts)
 
-    alert_trend_data = [random.randint(5, 20) for _ in range(7)]
+    alert_trend_data = [random.randint(5, 20) for _ in range(7)] 
 
     return jsonify({
         "critical_alerts_count": critical_alerts_count,
         "eps_count": eps_count,
         "top_sources": top_sources,
         "unassigned_alerts_count": unassigned_alerts_count,
-        "alert_trend_data": alert_trend_data
+        "alert_trend_data": alert_trend_data,
+        "event_volume_by_type": event_volume_by_type
     })
 
 @app.route('/api/alerts/<string:alert_id>/status', methods=['PUT'])
@@ -206,9 +248,7 @@ def initialize_mock_data_api_side():
     This function is now called when the Flask app starts.
     """
     print("Checking for existing data before initializing mock data...")
-    # Check if there are any logs or alerts already in the database
-    # This prevents re-inserting data on every worker boot if the DB is persistent
-    if db_client.get_recent_logs(limit=1) or db_client.get_open_alerts():
+    if db_client.get_recent_logs(limit=1) or db_client.get_open_alerts() or db_client.get_recent_network_flows(limit=1): # NEW: Check network flows too
         print("Existing data found. Skipping mock data initialization.")
         return
 
@@ -232,45 +272,50 @@ def initialize_mock_data_api_side():
         "Jun 17 10:01:20 db-dev-02 netflow: [ALERT] Suspicious high volume outbound connections to 172.16.20.100."
     ]
     for raw_log in sample_logs_for_init:
-        parsed_data = log_parser.parse_log_entry(raw_log)
-        if parsed_data:
-            # Create a LogEntry object to insert
-            log_entry_obj = LogEntry(
-                timestamp=parsed_data.get('timestamp', datetime.now()),
-                host=parsed_data.get('host', 'unknown_host'),
-                source=parsed_data.get('source', 'unknown_source'),
-                level=parsed_data.get('level', 'INFO'),
-                message=parsed_data.get('message', raw_log),
-                source_ip_host=parsed_data.get('source_ip_host'),
-                destination_ip_host=parsed_data.get('destination_ip_host'),
-                raw_log=raw_log
-            )
-            db_client.insert_log(log_entry_obj) # Insert LogEntry object
-            rules_engine.run_rules_on_log(log_entry_obj) # Run rules on LogEntry object
+        log_entry_obj = log_parser.parse_log_entry(raw_log)
+        if log_entry_obj:
+            inserted_id = db_client.insert_log(log_entry_obj) 
+            if inserted_id:
+                log_entry_obj._id = inserted_id 
+                rules_engine.run_rules_on_log(log_entry_obj) 
+            else:
+                print(f"WARNING: Failed to insert mock log: {raw_log}")
 
-    # Add some mock alerts directly. Ensure these are inserted as Alert objects.
     db_client.insert_alert(Alert(
         timestamp=datetime.now() - timedelta(minutes=10),
         severity="High",
         description="API Mock Alert: Multiple failed logins detected.",
         source_ip_host="192.168.1.50",
-        status="Open"
+        status="Open",
+        rule_name="Mock Failed Login Alert"
     ))
     db_client.insert_alert(Alert(
         timestamp=datetime.now() - timedelta(minutes=20),
         severity="Medium",
         description="API Mock Alert: Unusual data transfer volume.",
         source_ip_host="server-b",
-        status="Open"
+        status="Open",
+        rule_name="Mock Data Transfer Alert"
     ))
+
+    # --- NEW: Initialize mock network flow data ---
+    sample_flows_for_init = [
+        NetworkFlowEntry(timestamp=datetime.now() - timedelta(seconds=15), protocol="TCP", source_ip="192.168.1.1", destination_ip="8.8.8.8", source_port=51234, destination_port=53, byte_count=150, application_layer_protocol="DNS", flags=["SYN"]),
+        NetworkFlowEntry(timestamp=datetime.now() - timedelta(seconds=10), protocol="UDP", source_ip="10.0.0.100", destination_ip="172.16.0.5", source_port=161, destination_port=162, byte_count=200, application_layer_protocol="SNMP"),
+        NetworkFlowEntry(timestamp=datetime.now() - timedelta(seconds=5), protocol="TCP", source_ip="192.168.1.50", destination_ip="203.0.113.1", source_port=45678, destination_port=80, byte_count=1200, application_layer_protocol="HTTP", flags=["ACK", "PSH"])
+    ]
+    for flow_entry in sample_flows_for_init:
+        inserted_id = db_client.insert_network_flow(flow_entry)
+        if inserted_id:
+            flow_entry._id = inserted_id
+        else:
+            print(f"WARNING: Failed to insert mock network flow: {flow_entry.source_ip}")
+    # --- END NEW: Initialize mock network flow data ---
+
     print("Mock data initialization complete.")
 
 
-# This line calls the mock data initializer right after the app is created
-# but only if no data exists.
 initialize_mock_data_api_side()
 
 if __name__ == '__main__':
-    # This block will still run if you execute `python backend/api.py` directly,
-    # but the mock data initialization is now handled above for Gunicorn.
     app.run(host=config.API_HOST, port=config.API_PORT, debug=True)
