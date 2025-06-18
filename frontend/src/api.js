@@ -1,5 +1,4 @@
 // frontend/src/api.js
-
 /**
  * api.js
  * Centralized module for making API calls to the SIEM backend.
@@ -9,105 +8,44 @@
 // IMPORTANT: This has been updated to your deployed Render backend URL.
 const API_BASE_URL = 'https://siem-tool.onrender.com/api';
 
-
-// Helper function for making authenticated API requests
-async function makeApiRequest(endpoint, method = 'GET', data = null) {
+/**
+ * Helper function for making API requests.
+ * Exports this as the primary fetch utility.
+ * @param {string} endpoint - The API endpoint relative to API_BASE_URL.
+ * @param {Object} [options] - Fetch API options (method, headers, body).
+ * @returns {Promise<Object>} A promise that resolves to the JSON response data.
+ */
+export async function fetchApiData(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
-    const options = {
-        method: method,
-        headers: {
-            'Content-Type': 'application/json',
-            // 'Authorization': `Bearer ${yourAuthToken}` // Add authentication token if applicable
-        },
+    
+    // Default headers, can be overridden by options.headers
+    const defaultHeaders = {
+        'Content-Type': 'application/json',
+        // 'Authorization': `Bearer ${yourAuthToken}` // Add authentication token if applicable
     };
 
-    if (data) {
-        options.body = JSON.stringify(data);
+    const finalOptions = {
+        method: options.method || 'GET',
+        headers: { ...defaultHeaders, ...options.headers },
+        body: options.body,
+    };
+
+    // Remove body for GET/HEAD requests
+    if (finalOptions.method === 'GET' || finalOptions.method === 'HEAD') {
+        delete finalOptions.body;
     }
 
     try {
-        const response = await fetch(url, options);
+        const response = await fetch(url, finalOptions);
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: response.statusText }));
+            // Log the full error response for debugging
+            console.error(`API Error ${response.status} for ${url}:`, errorData);
             throw new Error(`API Error ${response.status}: ${errorData.message}`);
         }
         return await response.json();
     } catch (error) {
-        console.error('API request failed:', error);
-        // Rethrow or return a structured error for the caller to handle
-        throw error;
+        console.error(`API request to ${url} failed:`, error);
+        throw error; // Re-throw to be handled by the calling function
     }
 }
-
-/**
- * Fetches recent log entries from the backend.
- * @returns {Promise<Array>} A promise that resolves to an array of log entries.
- */
-async function getRecentLogs() {
-    return makeApiRequest('/logs/recent');
-}
-
-/**
- * Fetches alerts that are currently open or in progress.
- * @returns {Promise<Array>} A promise that resolves to an array of alert objects.
- */
-async function getOpenAlerts() {
-    return makeApiRequest('/alerts/open');
-}
-
-/**
- * Fetches dashboard metrics (e.g., critical alerts count, EPS, top sources).
- * @returns {Promise<Object>} A promise that resolves to an object containing dashboard metrics.
- */
-async function getDashboardMetrics() {
-    return makeApiRequest('/dashboard/metrics');
-}
-
-/**
- * Filters log entries based on search criteria.
- * @param {Object} filters - An object containing filter_text, source, and level.
- * @returns {Promise<Array>} A promise that resolves to an array of filtered log entries.
- */
-async function filterLogs(filters) {
-    return makeApiRequest('/logs/filter', 'POST', filters);
-}
-
-/**
- * Updates the status of a specific alert.
- * @param {string} alertId - The ID of the alert to update.
- * @param {string} newStatus - The new status for the alert (e.g., 'Closed', 'In Progress').
- * @returns {Promise<Object>} A promise that resolves to a confirmation object.
- */
-async function updateAlertStatus(alertId, newStatus) {
-    return makeApiRequest(`/alerts/${alertId}/status`, 'PUT', { status: newStatus });
-}
-
-/**
- * Generates a daily security summary report.
- * @returns {Promise<Object>} A promise that resolves to the report data.
- */
-async function generateDailySecuritySummary() {
-    return makeApiRequest('/reports/daily_summary');
-}
-
-/**
- * Generates a compliance audit report for a given standard.
- * @param {string} standard - The compliance standard (e.g., 'ISO 27001', 'GDPR').
- * @returns {Promise<Object>} A promise that resolves to the report data.
- */
-async function generateComplianceAuditReport(standard) {
-    return makeApiRequest('/reports/compliance_audit', 'POST', { standard: standard });
-}
-
-
-// Export the API functions globally (or using modules if bundling)
-// This makes them accessible from main.js as `api.getRecentLogs()`, etc.
-window.api = {
-    getRecentLogs,
-    getOpenAlerts,
-    getDashboardMetrics,
-    filterLogs,
-    updateAlertStatus,
-    generateDailySecuritySummary,
-    generateComplianceAuditReport
-};
