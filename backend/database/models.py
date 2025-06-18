@@ -3,16 +3,8 @@ from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
 from bson import ObjectId # Import ObjectId for MongoDB _id handling
 
-# Base class BaseModel is no longer used for inheritance by dataclasses.
-# If you had generic methods in BaseModel that are not related to __init__
-# or object construction (e.g., a common utility for all models),
-# you might move them to a separate utility module or redefine them
-# directly within each dataclass if they're specific enough.
-# The `to_dict` and `from_dict` are now defined directly within each dataclass
-# as they are essential for their specific serialization/deserialization.
-
 @dataclass
-class LogEntry: # Removed (BaseModel)
+class LogEntry:
     timestamp: datetime
     host: str
     source: str
@@ -25,8 +17,8 @@ class LogEntry: # Removed (BaseModel)
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Converts the LogEntry object to a dictionary for database storage.
-        Handles datetime objects and ObjectId for MongoDB compatibility.
+        Converts the LogEntry object to a dictionary for database storage or JSON serialization.
+        Ensures ObjectId is converted to string for JSON.
         """
         data = {
             "timestamp": self.timestamp,
@@ -38,8 +30,9 @@ class LogEntry: # Removed (BaseModel)
             "destination_ip_host": self.destination_ip_host,
             "raw_log": self.raw_log
         }
+        # CRITICAL FIX: Convert ObjectId to string for JSON serialization
         if self._id:
-            data["_id"] = self._id # Keep as ObjectId if inserting/updating
+            data["_id"] = str(self._id) # Convert ObjectId to its string representation
         return {k: v for k, v in data.items() if v is not None}
 
     @classmethod
@@ -49,7 +42,13 @@ class LogEntry: # Removed (BaseModel)
         Handles converting MongoDB's _id and ensures timestamp is datetime.
         """
         _id = data.pop('_id', None)
-        
+        # If _id is a string, convert it back to ObjectId for database operations
+        if isinstance(_id, str):
+            try:
+                _id = ObjectId(_id)
+            except Exception:
+                _id = None # Handle invalid ObjectId strings gracefully
+
         # Ensure timestamp is datetime.datetime object
         if isinstance(data.get('timestamp'), str):
             try:
@@ -57,8 +56,6 @@ class LogEntry: # Removed (BaseModel)
                 data['timestamp'] = datetime.fromisoformat(data['timestamp'])
             except ValueError:
                 # Fallback for other formats if necessary, e.g., if 'Z' is just present but not part of strict ISO
-                # For example, if it's "2024-06-18T12:04:46.123Z" and fromisoformat fails, try removing 'Z'
-                # Note: This specific strptime format might need adjustment based on actual incoming string format
                 data['timestamp'] = datetime.strptime(data['timestamp'].replace('Z', ''), "%Y-%m-%dT%H:%M:%S.%f")
         elif isinstance(data.get('timestamp'), (int, float)): # Handle potential Unix timestamps
              data['timestamp'] = datetime.fromtimestamp(data['timestamp'])
@@ -78,7 +75,7 @@ class LogEntry: # Removed (BaseModel)
 
 
 @dataclass
-class Alert: # Removed (BaseModel)
+class Alert:
     timestamp: datetime
     severity: str
     description: str
@@ -92,7 +89,8 @@ class Alert: # Removed (BaseModel)
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Converts the Alert object to a dictionary for database storage.
+        Converts the Alert object to a dictionary for database storage or JSON serialization.
+        Ensures ObjectId is converted to string for JSON.
         """
         data = {
             "timestamp": self.timestamp,
@@ -105,8 +103,9 @@ class Alert: # Removed (BaseModel)
             "rule_name": self.rule_name,
             "log_ids": self.log_ids
         }
+        # CRITICAL FIX: Convert ObjectId to string for JSON serialization
         if self._id:
-            data["_id"] = self._id # Keep as ObjectId if inserting/updating
+            data["_id"] = str(self._id) # Convert ObjectId to its string representation
         return {k: v for k, v in data.items() if v is not None or k in ['comments', 'log_ids']}
 
     @classmethod
@@ -115,6 +114,12 @@ class Alert: # Removed (BaseModel)
         Creates an Alert instance from a dictionary (e.g., from MongoDB).
         """
         _id = data.pop('_id', None)
+        # If _id is a string, convert it back to ObjectId for database operations
+        if isinstance(_id, str):
+            try:
+                _id = ObjectId(_id)
+            except Exception:
+                _id = None # Handle invalid ObjectId strings gracefully
 
         if isinstance(data.get('timestamp'), str):
             try:
@@ -140,22 +145,25 @@ class Alert: # Removed (BaseModel)
 
 # --- NetworkFlowEntry Model ---
 @dataclass
-class NetworkFlowEntry: # Removed (BaseModel)
+class NetworkFlowEntry:
     timestamp: datetime
-    protocol: str  # e.g., 'TCP', 'UDP', 'ICMP', 'ARP'
+    protocol: str
     source_ip: str
     destination_ip: str
     source_port: Optional[int] = None
     destination_port: Optional[int] = None
-    packet_count: int = 1 # For individual packets, or sum for flow aggregates
-    byte_count: int = 0   # For individual packets, or sum for flow aggregates
-    flags: List[str] = field(default_factory=list) # TCP flags like SYN, ACK
-    flow_duration_ms: Optional[int] = None # For aggregated flows
-    application_layer_protocol: Optional[str] = None # e.g., 'HTTP', 'DNS', 'SSH'
+    packet_count: int = 1
+    byte_count: int = 0
+    flags: List[str] = field(default_factory=list)
+    flow_duration_ms: Optional[int] = None
+    application_layer_protocol: Optional[str] = None
     _id: Optional[ObjectId] = None # MongoDB _id
 
     def to_dict(self) -> Dict[str, Any]:
-        """Converts the NetworkFlowEntry object to a dictionary for database storage."""
+        """
+        Converts the NetworkFlowEntry object to a dictionary for database storage or JSON serialization.
+        Ensures ObjectId is converted to string for JSON.
+        """
         data = {
             "timestamp": self.timestamp,
             "protocol": self.protocol,
@@ -169,14 +177,21 @@ class NetworkFlowEntry: # Removed (BaseModel)
             "flow_duration_ms": self.flow_duration_ms,
             "application_layer_protocol": self.application_layer_protocol
         }
+        # CRITICAL FIX: Convert ObjectId to string for JSON serialization
         if self._id:
-            data["_id"] = self._id # Keep as ObjectId if inserting/updating
+            data["_id"] = str(self._id) # Convert ObjectId to its string representation
         return {k: v for k, v in data.items() if v is not None or k in ['flags']}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
         """Creates a NetworkFlowEntry instance from a dictionary."""
         _id = data.pop('_id', None)
+        # If _id is a string, convert it back to ObjectId for database operations
+        if isinstance(_id, str):
+            try:
+                _id = ObjectId(_id)
+            except Exception:
+                _id = None # Handle invalid ObjectId strings gracefully
 
         if isinstance(data.get('timestamp'), str):
             try:

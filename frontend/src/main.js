@@ -132,7 +132,10 @@ try {
                             if (event.target.classList.contains('alert-status-select')) {
                                 const alertId = event.target.dataset.alertId;
                                 const newStatus = event.target.value;
-                                console.log(`main.js: Attempting to update alert ${alertId} to status ${newStatus}`);
+                                
+                                // DEBUG LOG: Log the alertId and newStatus being sent
+                                console.log(`main.js: DEBUG: Attempting to update alert with ID from dataset: "${alertId}" to status: "${newStatus}"`);
+
                                 try {
                                     const response = await fetchApiData(`/alerts/${alertId}/status`, {
                                         method: 'PUT',
@@ -144,7 +147,6 @@ try {
                                         await loadDashboardData(); 
                                     } else {
                                         console.error(`main.js: Failed to update alert ${alertId} status: ${response.message}`);
-                                        // Using browser's alert for simplicity; consider custom modal for production
                                         alert(`Failed to update alert status: ${response.message}`); 
                                     }
                                 } catch (error) {
@@ -471,6 +473,9 @@ try {
                     if (alerts && alerts.length > 0) {
                         console.log(`main.js: Received ${alerts.length} open alerts.`);
                         alerts.forEach(alert => {
+                            // DEBUG LOG: Log the raw _id from the backend response
+                            console.log("main.js: DEBUG: Raw alert._id from backend:", alert._id);
+
                             const row = alertsTableBody.insertRow();
                             row.insertCell().textContent = alert.severity || 'N/A';
                             row.insertCell().textContent = alert.timestamp ? new Date(alert.timestamp).toLocaleString() : 'N/A';
@@ -481,7 +486,18 @@ try {
                             const actionCell = row.insertCell();
                             const select = document.createElement('select');
                             select.className = 'alert-status-select p-2 rounded-md bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-200';
-                            select.dataset.alertId = alert._id;
+                            
+                            // MODIFIED: Ensure alertId is a string, checking for common MongoDB ObjectId structure
+                            const alertId = (alert._id && typeof alert._id === 'object' && alert._id.$oid) ? alert._id.$oid : (typeof alert._id === 'string' ? alert._id : null);
+                            
+                            // DEBUG LOG: Log the processed alertId that will be set to data-alert-id
+                            console.log(`main.js: DEBUG: Processed alertId for dataset: "${alertId}"`);
+
+                            if (alertId) { // Only set data-alert-id if a valid ID is extracted
+                                select.dataset.alertId = alertId;
+                            } else {
+                                console.warn("main.js: WARNING: Could not extract a valid alertId for dropdown. Skipping dataset.alertId assignment.");
+                            }
 
                             ['Open', 'Investigating', 'Closed'].forEach(statusOption => {
                                 const option = document.createElement('option');
