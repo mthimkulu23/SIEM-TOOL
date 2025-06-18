@@ -1,28 +1,18 @@
-# backend/database/models.py
-
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-from dataclasses import dataclass, field # Import dataclass and field
+from dataclasses import dataclass, field
 from bson import ObjectId # Import ObjectId for MongoDB _id handling
 
-# Base class for all models (useful if you have common methods)
-class BaseModel:
-    def __init__(self, **kwargs):
-        # Assign all keyword arguments as attributes
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Converts the model's attributes to a dictionary, suitable for MongoDB insertion."""
-        # This generic to_dict is usually overridden by dataclasses' asdict or specific implementations
-        data = self.__dict__.copy()
-        # Convert ObjectId to string for JSON serialization if present
-        if '_id' in data and isinstance(data['_id'], ObjectId):
-            data['_id'] = str(data['_id'])
-        return data
+# Base class BaseModel is no longer used for inheritance by dataclasses.
+# If you had generic methods in BaseModel that are not related to __init__
+# or object construction (e.g., a common utility for all models),
+# you might move them to a separate utility module or redefine them
+# directly within each dataclass if they're specific enough.
+# The `to_dict` and `from_dict` are now defined directly within each dataclass
+# as they are essential for their specific serialization/deserialization.
 
 @dataclass
-class LogEntry(BaseModel):
+class LogEntry: # Removed (BaseModel)
     timestamp: datetime
     host: str
     source: str
@@ -60,8 +50,18 @@ class LogEntry(BaseModel):
         """
         _id = data.pop('_id', None)
         
+        # Ensure timestamp is datetime.datetime object
         if isinstance(data.get('timestamp'), str):
-            data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+            try:
+                # Try fromisoformat first (preferred for ISO 8601)
+                data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+            except ValueError:
+                # Fallback for other formats if necessary, e.g., if 'Z' is just present but not part of strict ISO
+                # For example, if it's "2024-06-18T12:04:46.123Z" and fromisoformat fails, try removing 'Z'
+                # Note: This specific strptime format might need adjustment based on actual incoming string format
+                data['timestamp'] = datetime.strptime(data['timestamp'].replace('Z', ''), "%Y-%m-%dT%H:%M:%S.%f")
+        elif isinstance(data.get('timestamp'), (int, float)): # Handle potential Unix timestamps
+             data['timestamp'] = datetime.fromtimestamp(data['timestamp'])
 
         log_entry = cls(
             timestamp=data.get('timestamp'),
@@ -78,7 +78,7 @@ class LogEntry(BaseModel):
 
 
 @dataclass
-class Alert(BaseModel):
+class Alert: # Removed (BaseModel)
     timestamp: datetime
     severity: str
     description: str
@@ -117,7 +117,12 @@ class Alert(BaseModel):
         _id = data.pop('_id', None)
 
         if isinstance(data.get('timestamp'), str):
-            data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+            try:
+                data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+            except ValueError:
+                data['timestamp'] = datetime.strptime(data['timestamp'].replace('Z', ''), "%Y-%m-%dT%H:%M:%S.%f")
+        elif isinstance(data.get('timestamp'), (int, float)):
+             data['timestamp'] = datetime.fromtimestamp(data['timestamp'])
 
         alert = cls(
             timestamp=data.get('timestamp'),
@@ -133,9 +138,9 @@ class Alert(BaseModel):
         )
         return alert
 
-# --- NEW: NetworkFlowEntry Model ---
+# --- NetworkFlowEntry Model ---
 @dataclass
-class NetworkFlowEntry(BaseModel):
+class NetworkFlowEntry: # Removed (BaseModel)
     timestamp: datetime
     protocol: str  # e.g., 'TCP', 'UDP', 'ICMP', 'ARP'
     source_ip: str
@@ -179,6 +184,8 @@ class NetworkFlowEntry(BaseModel):
             except ValueError:
                 # Handle cases where ISO format might not be strict (e.g., missing Z)
                 data['timestamp'] = datetime.strptime(data['timestamp'].replace('Z', ''), "%Y-%m-%dT%H:%M:%S.%f")
+        elif isinstance(data.get('timestamp'), (int, float)):
+             data['timestamp'] = datetime.fromtimestamp(data['timestamp'])
         
         return cls(
             timestamp=data.get('timestamp'),
