@@ -1,5 +1,3 @@
-# backend/api.py
-
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
@@ -82,6 +80,10 @@ def ingest_log():
         
         log_entry_obj = log_parser.parse_log_entry(raw_log)
 
+        # DEBUG PRINT: What is the type right before insertion?
+        print(f"DEBUG (api.py): Type of log_entry_obj before insert: {type(log_entry_obj)}")
+        print(f"DEBUG (api.py): Is log_entry_obj an instance of backend.database.models.LogEntry? {isinstance(log_entry_obj, LogEntry)}")
+
         inserted_id = db_client.insert_log(log_entry_obj)
         
         if inserted_id:
@@ -92,7 +94,7 @@ def ingest_log():
             
             return jsonify({"message": "Log ingested successfully", "log_id": str(inserted_id)}), 201
         else:
-            print(f"ERROR: API: Failed to insert log: {raw_log[:100]}...")
+            print(f"ERROR: API: Failed to ingest log: {raw_log[:100]}...")
             return jsonify({"error": "Failed to ingest log into database"}), 500
 
     except Exception as e:
@@ -122,6 +124,11 @@ def ingest_network_flow():
         # The from_dict method should handle datetime conversion from ISO string
         flow_entry = NetworkFlowEntry.from_dict(flow_data)
 
+        # DEBUG PRINT: What is the type right before insertion?
+        print(f"DEBUG (api.py): Type of flow_entry before insert: {type(flow_entry)}")
+        print(f"DEBUG (api.py): Is flow_entry an instance of backend.database.models.NetworkFlowEntry? {isinstance(flow_entry, NetworkFlowEntry)}")
+
+
         inserted_id = db_client.insert_network_flow(flow_entry)
         if inserted_id:
             # Assign the generated MongoDB _id back to the NetworkFlowEntry object
@@ -130,7 +137,7 @@ def ingest_network_flow():
             # You might add detection rules for network flows here later
             return jsonify({"message": "Network flow ingested successfully", "flow_id": str(inserted_id)}), 201
         else:
-            print(f"ERROR: API: Failed to insert network flow: {flow_data.get('source_ip')} -> {flow_data.get('destination_ip')}")
+            print(f"ERROR: API: Failed to ingest network flow: {flow_data.get('source_ip')} -> {flow_data.get('destination_ip')}")
             return jsonify({"error": "Failed to ingest network flow"}), 500
 
     except Exception as e:
@@ -273,13 +280,19 @@ def initialize_mock_data_api_side():
     ]
     for raw_log in sample_logs_for_init:
         log_entry_obj = log_parser.parse_log_entry(raw_log)
-        if log_entry_obj:
+        if log_entry_obj: # Ensure it's not None
+            # DEBUG PRINT: What is the type right before insertion in mock data init?
+            print(f"DEBUG (api.py - mock init): Type of log_entry_obj: {type(log_entry_obj)}")
+            print(f"DEBUG (api.py - mock init): Is LogEntry from mock init instance of backend.database.models.LogEntry? {isinstance(log_entry_obj, LogEntry)}")
+            
             inserted_id = db_client.insert_log(log_entry_obj) 
             if inserted_id:
                 log_entry_obj._id = inserted_id 
                 rules_engine.run_rules_on_log(log_entry_obj) 
             else:
                 print(f"WARNING: Failed to insert mock log: {raw_log}")
+        else: # This block would execute if parse_log_entry returns None
+            print(f"WARNING: Log parser returned None for raw_log: {raw_log}")
 
     db_client.insert_alert(Alert(
         timestamp=datetime.now() - timedelta(minutes=10),
@@ -305,6 +318,10 @@ def initialize_mock_data_api_side():
         NetworkFlowEntry(timestamp=datetime.now() - timedelta(seconds=5), protocol="TCP", source_ip="192.168.1.50", destination_ip="203.0.113.1", source_port=45678, destination_port=80, byte_count=1200, application_layer_protocol="HTTP", flags=["ACK", "PSH"])
     ]
     for flow_entry in sample_flows_for_init:
+        # DEBUG PRINT: What is the type right before insertion in mock data init?
+        print(f"DEBUG (api.py - mock init): Type of flow_entry: {type(flow_entry)}")
+        print(f"DEBUG (api.py - mock init): Is NetworkFlowEntry from mock init instance of backend.database.models.NetworkFlowEntry? {isinstance(flow_entry, NetworkFlowEntry)}")
+
         inserted_id = db_client.insert_network_flow(flow_entry)
         if inserted_id:
             flow_entry._id = inserted_id
