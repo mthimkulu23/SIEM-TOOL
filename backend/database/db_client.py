@@ -2,10 +2,10 @@
 
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.errors import ConnectionFailure, OperationFailure
-from backend.database.models import LogEntry, Alert, NetworkFlowEntry # Import new model
+from backend.database.models import LogEntry, Alert, NetworkFlowEntry
 from backend.config import Config
 from datetime import datetime, timedelta
-from bson.objectid import ObjectId # Import ObjectId for querying by ID
+from bson.objectid import ObjectId
 import re
 from typing import Optional, List, Dict, Any
 
@@ -17,7 +17,8 @@ class SiemDatabase:
         self._connect()
 
         # Initialize mock storage if real DB connection fails
-        if not self.db:
+        # CORRECTED: Changed 'if not self.db:' to 'if self.db is None:'
+        if self.db is None:
              print("WARNING: Using mock database storage. Please ensure MongoDB is running for persistence.")
              self._mock_logs_storage = []
              self._mock_alerts_storage = []
@@ -35,7 +36,7 @@ class SiemDatabase:
             # Assign collections after successful connection
             self.logs_collection = self.db[self.config.LOGS_COLLECTION_NAME]
             self.alerts_collection = self.db[self.config.ALERTS_COLLECTION_NAME]
-            self.network_flows_collection = self.db["network_flows"] # NEW COLLECTION ASSIGNMENT
+            self.network_flows_collection = self.db["network_flows"]
 
             print("Successfully connected to MongoDB Atlas.")
         except ConnectionFailure as e:
@@ -56,7 +57,8 @@ class SiemDatabase:
         if not isinstance(log_entry, LogEntry):
             raise TypeError("Expected a LogEntry object for insertion.")
 
-        if self.db: # Using real MongoDB
+        # CORRECTED: Changed 'if self.db:' to 'if self.db is not None:'
+        if self.db is not None: # Using real MongoDB
             try:
                 result = self.logs_collection.insert_one(log_entry.to_dict())
                 return result.inserted_id
@@ -78,7 +80,8 @@ class SiemDatabase:
         if not isinstance(alert_entry, Alert):
             raise TypeError("Expected an Alert object for insertion.")
 
-        if self.db: # Using real MongoDB
+        # CORRECTED: Changed 'if self.db:' to 'if self.db is not None:'
+        if self.db is not None: # Using real MongoDB
             try:
                 result = self.alerts_collection.insert_one(alert_entry.to_dict())
                 return result.inserted_id
@@ -91,7 +94,7 @@ class SiemDatabase:
             self._mock_alerts_storage.append(alert_entry)
             return mock_id
 
-    def insert_network_flow(self, flow_entry: NetworkFlowEntry) -> Optional[ObjectId]: # NEW METHOD
+    def insert_network_flow(self, flow_entry: NetworkFlowEntry) -> Optional[ObjectId]:
         """
         Inserts a NetworkFlowEntry object into the network_flows collection.
         :param flow_entry: An instance of NetworkFlowEntry.
@@ -100,7 +103,8 @@ class SiemDatabase:
         if not isinstance(flow_entry, NetworkFlowEntry):
             raise TypeError("Expected a NetworkFlowEntry object for insertion.")
 
-        if self.db: # Using real MongoDB
+        # CORRECTED: Changed 'if self.db:' to 'if self.db is not None:'
+        if self.db is not None: # Using real MongoDB
             try:
                 result = self.network_flows_collection.insert_one(flow_entry.to_dict())
                 return result.inserted_id
@@ -118,7 +122,8 @@ class SiemDatabase:
         Retrieves logs matching specific criteria.
         Returns a list of LogEntry objects.
         """
-        if self.db: # Using real MongoDB
+        # CORRECTED: Changed 'if self.db:' to 'if self.db is not None:'
+        if self.db is not None: # Using real MongoDB
             try:
                 cursor = self.logs_collection.find(query).sort("timestamp", DESCENDING).limit(limit)
                 return [LogEntry.from_dict(doc) for doc in cursor]
@@ -140,7 +145,7 @@ class SiemDatabase:
                             if not re.search(value["$regex"], log_entry.message, re.IGNORECASE if "$options" in value and "i" in value["$options"] else 0):
                                 match = False
                                 break
-                    elif getattr(log_entry, key, None) != value:
+                    elif hasattr(log_entry, key) and getattr(log_entry, key) != value:
                         match = False
                         break
                 if match:
@@ -150,7 +155,8 @@ class SiemDatabase:
 
     def get_recent_logs(self, limit: int = 20) -> List[LogEntry]:
         """Retrieves the most recent logs."""
-        if self.db:
+        # CORRECTED: Changed 'if self.db:' to 'if self.db is not None:'
+        if self.db is not None:
             try:
                 cursor = self.logs_collection.find().sort("timestamp", DESCENDING).limit(limit)
                 return [LogEntry.from_dict(doc) for doc in cursor]
@@ -166,7 +172,8 @@ class SiemDatabase:
         if severity:
             query["severity"] = severity
         
-        if self.db:
+        # CORRECTED: Changed 'if self.db:' to 'if self.db is not None:'
+        if self.db is not None:
             try:
                 cursor = self.alerts_collection.find(query).sort("timestamp", DESCENDING)
                 return [Alert.from_dict(doc) for doc in cursor]
@@ -181,7 +188,8 @@ class SiemDatabase:
 
     def get_all_alerts(self) -> List[Alert]:
         """Retrieves all alerts."""
-        if self.db:
+        # CORRECTED: Changed 'if self.db:' to 'if self.db is not None:'
+        if self.db is not None:
             try:
                 cursor = self.alerts_collection.find().sort("timestamp", DESCENDING)
                 return [Alert.from_dict(doc) for doc in cursor]
@@ -191,9 +199,10 @@ class SiemDatabase:
         else:
             return sorted(self._mock_alerts_storage, key=lambda x: x.timestamp, reverse=True)
 
-    def get_recent_network_flows(self, limit: int = 20) -> List[NetworkFlowEntry]: # NEW METHOD
+    def get_recent_network_flows(self, limit: int = 20) -> List[NetworkFlowEntry]:
         """Retrieves recent network flow entries."""
-        if self.db:
+        # CORRECTED: Changed 'if self.db:' to 'if self.db is not None:'
+        if self.db is not None:
             try:
                 cursor = self.network_flows_collection.find().sort("timestamp", DESCENDING).limit(limit)
                 return [NetworkFlowEntry.from_dict(doc) for doc in cursor]
@@ -217,7 +226,8 @@ class SiemDatabase:
 
     def update_alert_status(self, alert_id: str, new_status: str) -> bool:
         """Updates the status of an alert by its ID."""
-        if self.db:
+        # CORRECTED: Changed 'if self.db:' to 'if self.db is not None:'
+        if self.db is not None:
             try:
                 # Convert string ID to ObjectId for MongoDB query
                 object_alert_id = ObjectId(alert_id)
@@ -231,7 +241,8 @@ class SiemDatabase:
                 return False
         else: # Mock update
             for alert in self._mock_alerts_storage:
-                if str(alert._id) == alert_id: # Compare string representation of ObjectId
+                # Compare string representation of ObjectId (from mock ID or real _id converted to str)
+                if str(alert._id) == alert_id:
                     alert.status = new_status
                     alert.timestamp = datetime.now() # Update mock timestamp
                     return True
@@ -239,6 +250,6 @@ class SiemDatabase:
 
     def close(self):
         """Closes the MongoDB connection."""
-        if self.client:
+        if self.client: # This check is fine for the client object
             self.client.close()
             print("MongoDB connection closed.")
