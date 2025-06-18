@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Marvelous SIEM Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Corrected Google Fonts URL -->
+    <!-- Corrected Google Fonts URL from fonts.org to fonts.googleapis.com -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="src/main.css">
 </head>
@@ -46,7 +46,7 @@
         </div>
     </aside>
 
-    <main class="flex-1 p-8 overflow-y-auto">
+    <main class="flex-1 p-8 overflow-y-auto" id="main-content"> <!-- Ensure main-content ID is here -->
         <section id="dashboard-section" class="active-section">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Threat Overview</h1>
 
@@ -64,7 +64,8 @@
                 <div class="card p-6 rounded-xl shadow-xl border border-purple-600">
                     <h2 class="text-xl font-semibold mb-2 text-purple-400">Top Event Sources</h2>
                     <ul id="top-sources-list" class="list-none text-gray-300 text-lg">
-                        </ul>
+                        <!-- Top event sources will be inserted here -->
+                    </ul>
                 </div>
                 <div class="card p-6 rounded-xl shadow-xl border border-yellow-600">
                     <h2 class="text-xl font-semibold mb-2 text-yellow-400">Unassigned Alerts</h2>
@@ -151,10 +152,13 @@
         </section>
 
 
+        <!-- These sections are commented out because they are loaded dynamically via renderPartial() in main.js -->
+        <!-- However, their HTML structure should exist in src/views/*.html files -->
+        <!-- They are included here for completeness of the original index.html context -->
 
+        <!-- logs-section and its content will be loaded from src/views/logs.html -->
         <section id="logs-section" class="hidden">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Log Explorer</h1>
-
             <div class="card p-6 rounded-xl shadow-xl mb-8">
                 <h2 class="text-xl font-semibold mb-4 text-green-400">Upload New Log</h2>
                 <textarea id="logInput" rows="10" cols="80" placeholder="Paste your raw log line(s) here..."
@@ -162,7 +166,6 @@
                 <button id="sendLogButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg">Send Log</button>
                 <p id="uploadStatus" class="mt-2 text-sm"></p>
             </div>
-
             <div class="card p-6 rounded-xl shadow-xl">
                 <div class="flex flex-wrap items-center mb-4 space-x-0 space-y-2 md:space-y-0 md:space-x-4">
                     <input type="text" id="log-filter-input" placeholder="Filter logs..." class="flex-1 p-3 rounded-lg bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px] text-gray-200">
@@ -199,6 +202,7 @@
             </div>
         </section>
 
+        <!-- alerts-section and its content will be loaded from src/views/alerts.html -->
         <section id="alerts-section" class="hidden">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Active Alerts</h1>
             <div class="card p-6 rounded-xl shadow-xl">
@@ -219,6 +223,7 @@
             </div>
         </section>
 
+        <!-- reports-section and its content will be loaded from src/views/reports.html -->
         <section id="reports-section" class="hidden">
             <h1 class="text-4xl font-extrabold mb-8 text-blue-300 tracking-wide">Security Reports</h1>
             <div class="card p-6 rounded-xl shadow-xl">

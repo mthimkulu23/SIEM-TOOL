@@ -11,38 +11,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // Function to render partials (views)
     async function renderPartial(viewName) {
         try {
+            // Fetch HTML for the view
             const response = await fetch(`/src/views/${viewName}.html`);
             if (!response.ok) {
                 throw new Error(`Failed to load view: ${viewName}.html`);
             }
             mainContent.innerHTML = await response.text();
-            await executeViewScript(viewName); // Await view script execution
-            setupEventListenersForCurrentView(viewName); // Setup listeners after view is loaded
+            
+            // Execute view-specific JavaScript after HTML is loaded
+            await executeViewScript(viewName); 
+            // Setup event listeners for elements *within* the newly loaded view
+            setupEventListenersForCurrentView(viewName); 
         } catch (error) {
             console.error('Error rendering partial:', error);
             mainContent.innerHTML = `<p class="text-red-500">Error loading content. Please try again.</p>`;
         }
     }
 
-    // Function to execute JavaScript for the loaded view
+    // Function to execute JavaScript for the loaded view (e.g., fetching data)
     async function executeViewScript(viewName) {
         switch (viewName) {
             case 'dashboard':
                 await loadDashboardData();
                 break;
-            case 'logs': // Corresponds to 'logs-section'
+            case 'logs': 
                 await loadLogsExplorerData();
                 break;
-            case 'alerts': // Corresponds to 'alerts-section'
+            case 'alerts': 
                 await loadAlertsCenterData();
                 break;
-            case 'reports': // Corresponds to 'reports-section'
+            case 'reports': 
                 await loadSecurityReportsData();
                 break;
         }
     }
 
     // Function to set up event listeners for dynamically loaded content
+    // This is called *after* the HTML for a view is loaded into main-content
     function setupEventListenersForCurrentView(viewName) {
         if (viewName === 'logs') {
             const sendLogButton = document.getElementById('sendLogButton');
@@ -67,15 +72,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             body: JSON.stringify({ raw_log: rawLog }),
                         });
 
-                        if (response && response.log_id) { // Check for successful response object
+                        if (response && response.log_id) { 
                             uploadStatus.textContent = `Log uploaded successfully! Log ID: ${response.log_id}`;
                             uploadStatus.style.color = 'green';
-                            logInput.value = ''; // Clear textarea
+                            logInput.value = ''; 
 
                             // Refresh relevant dashboard/logs/alerts data after ingestion
-                            await loadLogsExplorerData(); // Refresh logs explorer
-                            await loadDashboardData();    // Refresh dashboard metrics
-                            await loadAlertsCenterData(); // Refresh alerts
+                            // Await these calls to ensure data is updated before user sees it
+                            await loadLogsExplorerData(); 
+                            await loadDashboardData();    
+                            await loadAlertsCenterData(); 
                         } else {
                             uploadStatus.textContent = `Error uploading log: ${response.error || 'Unknown error'}`;
                             uploadStatus.style.color = 'red';
@@ -111,8 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         } else if (viewName === 'alerts') {
-             // Attach event listeners for status updates on alerts
-            const alertsTableBody = document.getElementById('alerts-table-body');
+             const alertsTableBody = document.getElementById('alerts-table-body');
             if (alertsTableBody) {
                 alertsTableBody.addEventListener('change', async (event) => {
                     if (event.target.classList.contains('alert-status-select')) {
@@ -126,15 +131,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                             if (response.success) {
                                 console.log(`Alert ${alertId} status updated to ${newStatus}`);
-                                await loadAlertsCenterData(); // Refresh the alerts table
-                                await loadDashboardData(); // Update dashboard counts
+                                await loadAlertsCenterData(); 
+                                await loadDashboardData(); 
                             } else {
                                 console.error(`Failed to update alert ${alertId} status: ${response.message}`);
-                                alert(`Failed to update alert status: ${response.message}`); // Use a custom modal in production
+                                alert(`Failed to update alert status: ${response.message}`); 
                             }
                         } catch (error) {
                             console.error(`Error updating alert status for ${alertId}:`, error);
-                            alert(`Error updating alert status: ${error.message}`); // Use a custom modal
+                            alert(`Error updating alert status: ${error.message}`); 
                         }
                     }
                 });
