@@ -5,6 +5,10 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: #0d1117; /* Even darker background for more contrast */
     color: #e2e8f0; /* Light text for readability */
+    /* Ensure body allows for flex layout on larger screens, but adapt for smaller */
+    display: flex; /* Default for desktop-first approach */
+    height: 100vh;
+    overflow: hidden; /* Hide overflow on desktop body */
 }
 
 /* Custom scrollbar for log viewer to match theme */
@@ -94,4 +98,126 @@ body {
 #report-output pre {
     white-space: pre-wrap; /* Ensure wrapping for long lines */
     word-break: break-all; /* Break long words */
+}
+
+/*
+    Responsive CSS Adjustments
+*/
+
+/* Mobile header specific styles (hidden on large screens by default via lg:hidden in HTML) */
+.mobile-header {
+    height: 64px; /* Fixed height for the top bar */
+    padding-top: constant(safe-area-inset-top); /* For iPhone notch */
+    padding-top: env(safe-area-inset-top); /* For iPhone notch */
+}
+
+/* Sidebar for mobile (initially off-screen, fixed position) */
+#sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh; /* Full viewport height */
+    width: 250px; /* Fixed width for mobile sidebar */
+    z-index: 50; /* Ensure sidebar is on top */
+    transition: transform 0.3s ease-in-out;
+    transform: translateX(-100%); /* Start off-screen */
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+}
+
+#sidebar.sidebar-open {
+    transform: translateX(0); /* Slide in */
+}
+
+/* Overlay for when the sidebar is open on mobile */
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 40; /* Below sidebar, above content */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+.sidebar-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Main content adjustments based on screen size */
+main {
+    flex-grow: 1; /* Allows main content to take remaining space on desktop */
+    padding: 2rem; /* Default padding for desktop */
+    margin-left: 0; /* Default no margin for mobile, adjusted by JS on open */
+}
+
+/* Apply specific styles for large screens (desktop) */
+@media (min-width: 1024px) { /* Equivalent to Tailwind's lg breakpoint */
+    body {
+        display: flex; /* Re-enable flex for desktop layout */
+        height: 100vh;
+        overflow: hidden; /* Keep body overflow hidden on desktop */
+    }
+
+    #sidebar {
+        position: relative; /* Sidebar is part of normal flow */
+        transform: translateX(0); /* Always visible */
+        width: 256px; /* Tailwind w-64 */
+        flex-shrink: 0; /* Prevent shrinking */
+    }
+
+    .mobile-header {
+        display: none; /* Hide mobile header on desktop */
+    }
+
+    .sidebar-overlay {
+        display: none; /* Hide overlay on desktop */
+    }
+    
+    main {
+        padding-top: 2rem; /* Standard padding for desktop */
+        margin-left: 0; /* No explicit margin needed, flex handles it */
+    }
+}
+
+/* Apply general responsive adjustments for smaller screens */
+@media (max-width: 1023px) { /* Anything smaller than lg breakpoint */
+    body {
+        display: block; /* Allow vertical stacking */
+        height: auto; /* Content defines height */
+        overflow-y: auto; /* Enable scrolling for main content */
+        padding-top: 64px; /* Account for fixed mobile header height */
+    }
+
+    /* Ensure tables are horizontally scrollable */
+    #recent-events-log-viewer,
+    #log-explorer-viewer,
+    #alerts-table-container { 
+        overflow-x: auto;
+    }
+    
+    /* Make tables fit, but allow horizontal scroll */
+    .min-w-full {
+        min-width: 700px; /* Ensure table content doesn't shrink too much, allowing scroll */
+    }
+
+    /* Adjust card padding and spacing for mobile */
+    .card {
+        padding: 1rem;
+        margin-bottom: 1rem; /* Add margin between stacked cards */
+    }
+
+    /* Adjust spacing for filter inputs in logs explorer */
+    .flex-wrap > *:not(button) { /* Apply to inputs/selects, but not buttons */
+        width: 100%; /* Stack inputs/selects on mobile */
+        margin-right: 0 !important;
+        margin-bottom: 0.5rem;
+    }
+    .flex-wrap > button {
+        width: 100%;
+        margin-top: 1rem;
+    }
 }

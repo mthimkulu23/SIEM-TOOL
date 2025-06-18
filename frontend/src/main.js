@@ -15,11 +15,18 @@ try {
         try {
             const navLinks = document.querySelectorAll('nav a[data-section]'); 
             const sections = document.querySelectorAll('main section'); 
+            const sidebar = document.getElementById('sidebar');
+            const menuToggle = document.getElementById('menu-toggle');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
 
             console.log(`main.js: Found ${navLinks.length} navigation links.`); 
             if (navLinks.length === 0) {
                 console.error("main.js: No navigation links found with 'nav a[data-section]' selector!");
             }
+            if (!sidebar) { console.error("main.js: Sidebar element #sidebar not found!"); }
+            if (!menuToggle) { console.error("main.js: Menu toggle button #menu-toggle not found!"); }
+            if (!sidebarOverlay) { console.error("main.js: Sidebar overlay #sidebar-overlay not found!"); }
+
 
             // Function to show/hide sections (content already exists in index.html)
             function showSection(targetSectionId) {
@@ -33,7 +40,40 @@ try {
                         section.classList.remove('active-section');
                     }
                 });
+                // Close sidebar on section navigation for mobile
+                closeSidebar();
             }
+
+            // --- Sidebar Toggle Functions ---
+            function openSidebar() {
+                if (sidebar) {
+                    sidebar.classList.add('sidebar-open');
+                    sidebar.classList.remove('sidebar-closed');
+                }
+                if (sidebarOverlay) {
+                    sidebarOverlay.classList.add('active');
+                }
+            }
+
+            function closeSidebar() {
+                if (sidebar) {
+                    sidebar.classList.remove('sidebar-open');
+                    sidebar.classList.add('sidebar-closed');
+                }
+                if (sidebarOverlay) {
+                    sidebarOverlay.classList.remove('active');
+                }
+            }
+
+            // Event listeners for sidebar toggle
+            if (menuToggle) {
+                menuToggle.addEventListener('click', openSidebar);
+            }
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', closeSidebar); // Click overlay to close
+            }
+            // --- End Sidebar Toggle Functions ---
+
 
             // Function to load data for a specific view and set up its listeners
             async function loadViewAndSetupListeners(viewName) {
@@ -44,14 +84,13 @@ try {
                         break;
                     case 'logs': 
                         await loadLogsExplorerData();
-                        setupLogsEventListeners(); // Setup listeners *after* data is potentially loaded
+                        setupLogsEventListeners(); 
                         break;
                     case 'alerts': 
                         await loadAlertsCenterData();
-                        setupAlertsEventListeners(); // Setup listeners *after* data is potentially loaded
+                        setupAlertsEventListeners();
                         break;
                     case 'reports': 
-                        // Reports don't load data initially, just set up listeners
                         setupReportsEventListeners();
                         break;
                     default:
@@ -60,10 +99,6 @@ try {
             }
             
             // --- Separate Listener Setup Functions for Each Section ---
-            // These functions are designed to be called when their respective section
-            // becomes active, ensuring listeners are attached to elements that are visible/relevant.
-            // Using `onclick` and `onchange` properties directly helps avoid duplicate listeners.
-
             function setupLogsEventListeners() {
                 console.log("main.js: Setting up logs event listeners.");
                 const sendLogButton = document.getElementById('sendLogButton');
@@ -126,14 +161,12 @@ try {
                 console.log("main.js: Setting up alerts event listeners.");
                 const alertsTableBody = document.getElementById('alerts-table-body');
                 if (alertsTableBody) {
-                    // Check if onchange is already assigned to avoid multiple listeners
                     if (alertsTableBody.onchange === null) {
                         alertsTableBody.onchange = async (event) => {
                             if (event.target.classList.contains('alert-status-select')) {
                                 const alertId = event.target.dataset.alertId;
                                 const newStatus = event.target.value;
                                 
-                                // DEBUG LOG: Log the alertId and newStatus being sent
                                 console.log(`main.js: DEBUG: Attempting to update alert with ID from dataset: "${alertId}" to status: "${newStatus}"`);
 
                                 try {
@@ -208,16 +241,14 @@ try {
             navLinks.forEach(link => {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
-                    const targetViewName = link.dataset.section; // 'dashboard', 'logs', 'alerts', 'reports'
+                    const targetViewName = link.dataset.section; 
                     console.log(`main.js: Navigation click - target section: ${targetViewName}`);
 
-                    // Remove 'active-link' from all nav links and add to the clicked one
                     navLinks.forEach(nav => nav.classList.remove('active-link'));
                     link.classList.add('active-link');
 
-                    // Show the relevant section and then load its data and setup listeners
                     showSection(`${targetViewName}-section`); 
-                    loadViewAndSetupListeners(targetViewName); // Calls the specific data loading function
+                    loadViewAndSetupListeners(targetViewName);
                 });
             });
 
@@ -239,12 +270,10 @@ try {
                     if (metrics) {
                         console.log("main.js: Dashboard metrics received:", metrics);
 
-                        // Update dashboard cards
                         document.getElementById('critical-alerts-count').textContent = metrics.critical_alerts_count;
                         document.getElementById('eps-count').textContent = metrics.eps_count;
                         document.getElementById('unassigned-alerts-count').textContent = metrics.unassigned_alerts_count;
 
-                        // Update Top Event Sources List
                         const topSourcesList = document.getElementById('top-sources-list');
                         if (topSourcesList) {
                             topSourcesList.innerHTML = '';
@@ -257,15 +286,12 @@ try {
                             console.warn("main.js: top-sources-list element not found.");
                         }
 
-                        // Update Event Volume by Type (progress bars)
                         const eventVolumeData = metrics.event_volume_by_type;
                         if (eventVolumeData) {
-                            // Helper to safely update bars
                             const updateBar = (idPrefix, value, label) => {
                                 const bar = document.getElementById(`${idPrefix}-bar`);
                                 const percentSpan = document.getElementById(`${idPrefix}-percent`);
                                 
-                                // Added console logs for debugging specific elements
                                 console.log(`main.js: DEBUG: Attempting to update ${idPrefix}. Bar element found: ${!!bar}, Span element found: ${!!percentSpan}. Value to set: ${value}%`);
 
                                 if (bar && percentSpan) {
@@ -289,7 +315,6 @@ try {
                         console.log("main.js: DEBUG (Frontend): Event Volume Data processed:", metrics.event_volume_by_type);
 
 
-                        // Update Alerts Trend (Chart.js)
                         const alertsTrendCanvasDiv = document.getElementById('alerts-line-chart');
                         if (alertsTrendCanvasDiv) {
                             let chartCanvas = alertsTrendCanvasDiv.querySelector('canvas');
@@ -473,7 +498,6 @@ try {
                     if (alerts && alerts.length > 0) {
                         console.log(`main.js: Received ${alerts.length} open alerts.`);
                         alerts.forEach(alert => {
-                            // DEBUG LOG: Log the raw _id from the backend response
                             console.log("main.js: DEBUG: Raw alert._id from backend:", alert._id);
 
                             const row = alertsTableBody.insertRow();
@@ -487,13 +511,11 @@ try {
                             const select = document.createElement('select');
                             select.className = 'alert-status-select p-2 rounded-md bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-200';
                             
-                            // MODIFIED: Ensure alertId is a string, checking for common MongoDB ObjectId structure
                             const alertId = (alert._id && typeof alert._id === 'object' && alert._id.$oid) ? alert._id.$oid : (typeof alert._id === 'string' ? alert._id : null);
                             
-                            // DEBUG LOG: Log the processed alertId that will be set to data-alert-id
                             console.log(`main.js: DEBUG: Processed alertId for dataset: "${alertId}"`);
 
-                            if (alertId) { // Only set data-alert-id if a valid ID is extracted
+                            if (alertId) { 
                                 select.dataset.alertId = alertId;
                             } else {
                                 console.warn("main.js: WARNING: Could not extract a valid alertId for dropdown. Skipping dataset.alertId assignment.");
