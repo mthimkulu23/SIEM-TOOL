@@ -1,53 +1,55 @@
 // frontend/src/api.js
-/**
- * api.js
- * Centralized module for making API calls to the SIEM backend.
- */
 
-// Base URL for your backend API
-// IMPORTANT: This has been updated for LOCAL DEVELOPMENT.
-// When deploying your frontend to Render, you MUST change this back to your Render backend URL.
-const API_BASE_URL = 'http://127.0.0.1:5000/api';
+// IMPORTANT: You MUST replace this placeholder with the actual PUBLIC URL of your deployed Render backend API.
+// Examples:
+// If your Render backend service is named 'siem-backend-api', its URL might be:
+// "https://siem-backend-api.onrender.com"
+//
+// You can find this URL in your Render dashboard, under the settings for your backend web service.
+// It will usually look something like 'https://your-service-name.onrender.com'.
+const API_BASE_URL = "https://siem-tool.onrender.com/"; // <-- *** UPDATE THIS LINE ***
 
+// During local development, you would set this to:
+// const API_BASE_URL = "http://127.0.0.1:5000"; 
+//
+// For a production deployment where the frontend and backend are separate services,
+// you need the full, public URL of your backend.
 
-/**
- * Helper function for making API requests.
- * Exports this as the primary fetch utility.
- * @param {string} endpoint - The API endpoint relative to API_BASE_URL.
- * @param {Object} [options] - Fetch API options (method, headers, body).
- * @returns {Promise<Object>} A promise that resolves to the JSON response data.
- */
 export async function fetchApiData(endpoint, options = {}) {
+    // Construct the full URL for the API request
     const url = `${API_BASE_URL}${endpoint}`;
-    
-    // Default headers, can be overridden by options.headers
-    const defaultHeaders = {
-        'Content-Type': 'application/json',
-        // 'Authorization': `Bearer ${yourAuthToken}` // Add authentication token if applicable
-    };
-
-    const finalOptions = {
-        method: options.method || 'GET',
-        headers: { ...defaultHeaders, ...options.headers },
-        body: options.body,
-    };
-
-    // Remove body for GET/HEAD requests
-    if (finalOptions.method === 'GET' || finalOptions.method === 'HEAD') {
-        delete finalOptions.body;
-    }
 
     try {
-        const response = await fetch(url, finalOptions);
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: response.statusText }));
-            // Log the full error response for debugging
-            console.error(`API Error ${response.status} for ${url}:`, errorData);
-            throw new Error(`API Error ${response.status}: ${errorData.message}`);
+        const defaultOptions = {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        };
+
+        const fetchOptions = { ...defaultOptions, ...options };
+
+        if (fetchOptions.body && typeof fetchOptions.body !== 'string') {
+            fetchOptions.body = JSON.stringify(fetchOptions.body);
         }
-        return await response.json();
+
+        console.log(`api.js: Fetching data from: ${url} with options:`, fetchOptions); // Debug log
+
+        const response = await fetch(url, fetchOptions);
+
+        if (!response.ok) {
+            // Attempt to read error text from response body if available
+            const errorBody = await response.text();
+            console.error(`api.js: API Error ${response.status} from ${url}:`, errorBody);
+            throw new Error(`API Error ${response.status}: ${errorBody}`);
+        }
+
+        const data = await response.json();
+        console.log(`api.js: Received data from ${url}:`, data); // Debug log
+        return data;
     } catch (error) {
-        console.error(`API request to ${url} failed:`, error);
-        throw error; // Re-throw to be handled by the calling function
+        console.error(`api.js: Network or parsing error for ${url}:`, error);
+        // Re-throw the error so calling functions can handle it
+        throw error;
     }
 }
