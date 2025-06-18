@@ -7,7 +7,7 @@ from backend.config import Config
 from backend.database.db_client import SiemDatabase
 from backend.core.log_parser import LogParser
 from backend.core.detection_rules import DetectionRules
-from backend.database.models import LogEntry, Alert, NetworkFlowEntry # NEW: Import NetworkFlowEntry
+from backend.database.models import LogEntry, Alert, NetworkFlowEntry
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -78,7 +78,8 @@ def ingest_log():
 
         raw_log = data['raw_log']
         
-        log_entry_obj = log_parser.parse_log_entry(raw_log)
+        # CORRECTED: Call parse_log_line instead of parse_log_entry
+        log_entry_obj = log_parser.parse_log_line(raw_log)
 
         # DEBUG PRINT: What is the type right before insertion?
         print(f"DEBUG (api.py): Type of log_entry_obj before insert: {type(log_entry_obj)}")
@@ -94,7 +95,7 @@ def ingest_log():
             
             return jsonify({"message": "Log ingested successfully", "log_id": str(inserted_id)}), 201
         else:
-            print(f"ERROR: API: Failed to ingest log: {raw_log[:100]}...")
+            print(f"ERROR: API: Failed to insert log: {raw_log[:100]}...")
             return jsonify({"error": "Failed to ingest log into database"}), 500
 
     except Exception as e:
@@ -279,7 +280,8 @@ def initialize_mock_data_api_side():
         "Jun 17 10:01:20 db-dev-02 netflow: [ALERT] Suspicious high volume outbound connections to 172.16.20.100."
     ]
     for raw_log in sample_logs_for_init:
-        log_entry_obj = log_parser.parse_log_entry(raw_log)
+        # CORRECTED: Call parse_log_line instead of parse_log_entry for mock data init
+        log_entry_obj = log_parser.parse_log_line(raw_log)
         if log_entry_obj: # Ensure it's not None
             # DEBUG PRINT: What is the type right before insertion in mock data init?
             print(f"DEBUG (api.py - mock init): Type of log_entry_obj: {type(log_entry_obj)}")
@@ -291,7 +293,7 @@ def initialize_mock_data_api_side():
                 rules_engine.run_rules_on_log(log_entry_obj) 
             else:
                 print(f"WARNING: Failed to insert mock log: {raw_log}")
-        else: # This block would execute if parse_log_entry returns None
+        else: # This block would execute if parse_log_line returns None (though it should always return LogEntry now)
             print(f"WARNING: Log parser returned None for raw_log: {raw_log}")
 
     db_client.insert_alert(Alert(
