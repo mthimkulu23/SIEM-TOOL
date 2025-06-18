@@ -262,11 +262,16 @@ try {
                             const updateBar = (idPrefix, value, label) => {
                                 const bar = document.getElementById(`${idPrefix}-bar`);
                                 const percentSpan = document.getElementById(`${idPrefix}-percent`);
+                                
+                                // Added console logs for debugging specific elements
+                                console.log(`main.js: DEBUG: Attempting to update ${idPrefix}. Bar element found: ${!!bar}, Span element found: ${!!percentSpan}. Value to set: ${value}%`);
+
                                 if (bar && percentSpan) {
                                     bar.style.width = `${value}%`;
                                     percentSpan.textContent = `${label}: ${value}%`;
+                                    console.log(`main.js: DEBUG: Successfully updated ${idPrefix} to ${value}%. Current width: ${bar.style.width}`);
                                 } else {
-                                    console.warn(`main.js: Element with id '${idPrefix}-bar' or '${idPrefix}-percent' not found.`);
+                                    console.warn(`main.js: WARNING: Element with id '${idPrefix}-bar' or '${idPrefix}-percent' not found in DOM.`);
                                 }
                             };
 
